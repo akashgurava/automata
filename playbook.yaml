@@ -1,0 +1,6 @@
+- name: Install and configure services on macOS M1
+  hosts: localhost
+  connection: local
+  become: false
+  roles:
+    - postgresql

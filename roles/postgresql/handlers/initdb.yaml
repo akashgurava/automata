@@ -1,0 +1,78 @@
+- name: Stop PostgreSQL
+  ansible.builtin.include_tasks: handlers/stop_postgres.yaml
+  vars:
+    postgresql_data_dir: "{{ postgresql_brew_data_dir }}"
+
+- name: Ensure PostgreSQL DB directory exists
+  ansible.builtin.file:
+    path: "{{ ansible_env.POSTGRES_DB_PATH }}"
+    state: directory
+    mode: "700"
+
+- name: Ensure PostgreSQL DB log directory exists
+  ansible.builtin.file:
+    path: "{{ postgresql_log_dir }}"
+    state: directory
+    mode: "700"
+
+- name: Delete default PostgreSQL data directory
+  ansible.builtin.file:
+    path: "{{ postgresql_brew_data_dir }}"
+    state: absent
+
+- name: Create temporary password file
+  ansible.builtin.copy:
+    content: "{{ postgresql_superuser_password }}"
+    dest: "/tmp/postgres_pwd"
+    mode: "0600"
+  no_log: true
+
+- name: Initialize the database cluster with encoding and locale
+  ansible.builtin.command: >
+    initdb -D {{ postgresql_brew_data_dir }}
+      -U {{ postgresql_superuser_user }}
+      --pwfile=/tmp/postgres_pwd
+      -A scram-sha-256
+      --encoding=UTF8 --locale=en_US
+      --data-checksums
+  args:
+    creates: "{{ postgresql_brew_data_dir }}/PG_VERSION"
+
+- name: Remove temporary password file
+  ansible.builtin.file:
+    path: "/tmp/postgres_pwd"
+    state: absent
+  no_log: true
+
+- name: Start PostgreSQL server
+  ansible.builtin.command: "pg_ctl -D {{ postgresql_brew_data_dir }} start -l {{ postgresql_log_dir }}/{{ lookup('pipe', 'date +%Y%m%d%H%M%S') }}.log"
+  environment:
+    PATH: "{{ postgresql_user_bin_dir }}:{{ ansible_env.PATH }}"
+  changed_when: true
+
+
+- name: Create blocky user
+  community.postgresql.postgresql_user:
+    login_user: "{{ postgresql_superuser_user }}"
+    login_password: "{{ postgresql_superuser_password }}"
+    name: "{{ postgresql_blocky_user }}"
+    password: "{{ postgresql_blocky_password }}"
+    role_attr_flags: NOINHERIT,NOSUPERUSER,CREATEDB
+
+- name: Create blocky database
+  community.postgresql.postgresql_db:
+    login_user: "{{ postgresql_superuser_user }}"
+    login_password: "{{ postgresql_superuser_password }}"
+    owner: "{{ postgresql_blocky_user }}"
+    name: "{{ postgresql_blocky_db }}"
+    state: present
+
+- name: Stop PostgreSQL server
+  ansible.builtin.command: "pg_ctl -D {{ postgresql_brew_data_dir }} stop"
+  environment:
+    PATH: "{{ postgresql_user_bin_dir }}:{{ ansible_env.PATH }}"
+  changed_when: true
+
+- name: Move PostgreSQL data to custom directory
+  ansible.builtin.command: mv {{ postgresql_brew_data_dir }} {{  ansible_env.POSTGRES_DB_PATH }}
+  changed_when: true

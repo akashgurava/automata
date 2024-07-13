@@ -1,0 +1,26 @@
+- name: Check if PostgreSQL service is running
+  ansible.builtin.command: pg_ctl status -D {{ postgresql_user_data_dir }}
+  environment:
+    PATH: "{{ postgresql_user_bin_dir }}:{{ ansible_env.PATH }}"
+  register: check_pg_service
+  changed_when: false
+  # rc 0 => postgres service is running fine
+  # rc 2 => postgres is not installed or not symlinked
+  # rc 3 => DBMS folder is correct but the server is not running
+  # rc 4 => database data does not exist at `postgresql_user_data_dir` or is corrupted
+  failed_when: check_pg_service.rc not in (0, 2, 3, 4)
+
+- name: Install PostgreSQL
+  ansible.builtin.include_tasks: handlers/installation.yaml
+  when: check_pg_service.rc == 2
+
+- name: Initialize PostgreSQL Data
+  ansible.builtin.include_tasks: handlers/initdb.yaml
+  when: check_pg_service.rc in (2, 4)
+
+- name: Start PostgreSQL service
+  ansible.builtin.command: "pg_ctl -D {{ postgresql_user_data_dir }} start -l {{ postgresql_log_dir }}/{{ lookup('pipe', 'date +%Y%m%d%H%M%S') }}.log"
+  environment:
+    PATH: "{{ postgresql_user_bin_dir }}:{{ ansible_env.PATH }}"
+  when: check_pg_service.rc in (2, 3, 4)
+  changed_when: true

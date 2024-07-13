@@ -1,0 +1,9 @@
+{
+    "ansible.python.interpreterPath": "/Users/akash/.local/share/virtualenvs/automata-aw4qRSAz/bin/python",
+    "cSpell.words": [
+        "initdb"
+    ],
+    "files.associations": {
+        "*.yaml": "ansible"
+    }
+}
