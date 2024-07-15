@@ -1,19 +1,7 @@
 - name: Stop PostgreSQL
-  ansible.builtin.include_tasks: handlers/stop_postgres.yaml
+  ansible.builtin.include_tasks: tasks/stop.yaml
   vars:
     postgresql_data_dir: "{{ postgresql_brew_data_dir }}"
-
-- name: Ensure PostgreSQL DB directory exists
-  ansible.builtin.file:
-    path: "{{ ansible_env.POSTGRES_DB_PATH }}"
-    state: directory
-    mode: "700"
-
-- name: Ensure PostgreSQL DB log directory exists
-  ansible.builtin.file:
-    path: "{{ postgresql_log_dir }}"
-    state: directory
-    mode: "700"
 
 - name: Delete default PostgreSQL data directory
   ansible.builtin.file:
@@ -24,7 +12,7 @@
   ansible.builtin.copy:
     content: "{{ postgresql_superuser_password }}"
     dest: "/tmp/postgres_pwd"
-    mode: "0600"
+    mode: "0755"
   no_log: true
 
 - name: Initialize the database cluster with encoding and locale
@@ -44,12 +32,17 @@
     state: absent
   no_log: true
 
+- name: Ensure PostgreSQL DB log directory exists
+  ansible.builtin.file:
+    path: "{{ postgresql_log_dir }}"
+    state: directory
+    mode: "0755"
+
 - name: Start PostgreSQL server
   ansible.builtin.command: "pg_ctl -D {{ postgresql_brew_data_dir }} start -l {{ postgresql_log_dir }}/{{ lookup('pipe', 'date +%Y%m%d%H%M%S') }}.log"
   environment:
-    PATH: "{{ postgresql_user_bin_dir }}:{{ ansible_env.PATH }}"
+    PATH: "{{ user_bin_dir }}:{{ ansible_env.PATH }}"
   changed_when: true
-
 
 - name: Create blocky user
   community.postgresql.postgresql_user:
@@ -70,8 +63,14 @@
 - name: Stop PostgreSQL server
   ansible.builtin.command: "pg_ctl -D {{ postgresql_brew_data_dir }} stop"
   environment:
-    PATH: "{{ postgresql_user_bin_dir }}:{{ ansible_env.PATH }}"
+    PATH: "{{ user_bin_dir }}:{{ ansible_env.PATH }}"
   changed_when: true
+
+- name: Ensure PostgreSQL DB log directory exists
+  ansible.builtin.file:
+    path: "{{ ansible_env.POSTGRES_DB_PATH }}"
+    state: directory
+    mode: "0755"
 
 - name: Move PostgreSQL data to custom directory
   ansible.builtin.command: mv {{ postgresql_brew_data_dir }} {{  ansible_env.POSTGRES_DB_PATH }}

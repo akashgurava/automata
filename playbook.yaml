@@ -2,5 +2,10 @@
   hosts: localhost
   connection: local
   become: false
-  roles:
-    - postgresql
+  vars:
+    user_bin_dir: "{{ ansible_env.HOME }}/bin"
+    user_cfg_dir: "{{ ansible_env.HOME }}/cfg"
+  tasks:
+    - name: Ensure PostgreSQL service is running
+      ansible.builtin.include_role:
+        name: postgresql

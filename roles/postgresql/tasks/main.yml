@@ -1,26 +1,52 @@
-- name: Check if PostgreSQL service is running
-  ansible.builtin.command: pg_ctl status -D {{ postgresql_user_data_dir }}
+- name: Check if PostgreSQL is installed
+  ansible.builtin.command: "pg_ctl -D {{ postgresql_user_data_dir }} status"
   environment:
-    PATH: "{{ postgresql_user_bin_dir }}:{{ ansible_env.PATH }}"
-  register: check_pg_service
+    PATH: "{{ user_bin_dir }}:{{ ansible_env.PATH }}"
+  register: check_pg_installed
   changed_when: false
-  # rc 0 => postgres service is running fine
+  # rc 0 => postgres is installed
   # rc 2 => postgres is not installed or not symlinked
   # rc 3 => DBMS folder is correct but the server is not running
   # rc 4 => database data does not exist at `postgresql_user_data_dir` or is corrupted
-  failed_when: check_pg_service.rc not in (0, 2, 3, 4)
+  failed_when: check_pg_installed.rc not in (0, 2, 3, 4)
 
 - name: Install PostgreSQL
   ansible.builtin.include_tasks: handlers/installation.yaml
-  when: check_pg_service.rc == 2
+  when: check_pg_installed.rc == 2
+
+- name: Check if PostgreSQL service data is initialised
+  ansible.builtin.command: "pg_ctl -D {{ postgresql_user_data_dir }} status"
+  environment:
+    PATH: "{{ user_bin_dir }}:{{ ansible_env.PATH }}"
+  register: check_pg_data
+  changed_when: false
+  # rc 0 => postgres service is running fine
+  # rc 4 => database data does not exist at `postgresql_user_data_dir` or is corrupted
+  failed_when: check_pg_data.rc not in (0, 4)
 
 - name: Initialize PostgreSQL Data
   ansible.builtin.include_tasks: handlers/initdb.yaml
-  when: check_pg_service.rc in (2, 4)
+  when: check_pg_data.rc == 4
+
+- name: Check if PostgreSQL service is running
+  ansible.builtin.command: "pg_ctl -D {{ postgresql_user_data_dir }} status"
+  environment:
+    PATH: "{{ user_bin_dir }}:{{ ansible_env.PATH }}"
+  register: check_pg_service
+  changed_when: false
+  # rc 0 => postgres service is running fine
+  # rc 3 => DBMS folder is correct but the server is not running
+  failed_when: check_pg_service.rc not in (0, 3)
+
+- name: Ensure PostgreSQL DB log directory exists
+  ansible.builtin.file:
+    path: "{{ postgresql_log_dir }}"
+    state: directory
+    mode: "0755"
 
 - name: Start PostgreSQL service
   ansible.builtin.command: "pg_ctl -D {{ postgresql_user_data_dir }} start -l {{ postgresql_log_dir }}/{{ lookup('pipe', 'date +%Y%m%d%H%M%S') }}.log"
   environment:
-    PATH: "{{ postgresql_user_bin_dir }}:{{ ansible_env.PATH }}"
-  when: check_pg_service.rc in (2, 3, 4)
+    PATH: "{{ user_bin_dir }}:{{ ansible_env.PATH }}"
+  when: check_pg_service.rc == 3
   changed_when: true
