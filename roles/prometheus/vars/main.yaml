@@ -1,0 +1,6 @@
+prometheus_port: 9090
+prometheus_bin_dir: "{{ ansible_env.HOME }}/prometheus"
+prometheus_data_dir: "{{ ansible_env.PROMETHEUS_DB_PATH }}"
+prometheus_logs_dir: "{{ ansible_env.PROMETHEUS_DB_PATH }}/logs"
+
+prometheus_cfg_file: "{{ user_cfg_dir }}/prometheus.yaml"

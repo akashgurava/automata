@@ -1,0 +1,12 @@
+- name: Ensure User config directory exists
+  ansible.builtin.file:
+    path: "{{ user_cfg_dir }}"
+    state: directory
+    mode: "0755"
+  register: prom_cfg_dir
+
+- name: Copy prometheus.yaml
+  ansible.builtin.copy:
+    src: "{{ role_path }}/files/prometheus.yaml"
+    dest: "{{ prometheus_cfg_file }}"
+    mode: "0755"

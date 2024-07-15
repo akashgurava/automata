@@ -6,10 +6,12 @@
     user_bin_dir: "{{ ansible_env.HOME }}/bin"
     user_cfg_dir: "{{ ansible_env.HOME }}/cfg"
   tasks:
-    - name: Ensure PostgreSQL service is running
+    - name: Stop PostgreSQL
       ansible.builtin.include_role:
         name: postgresql
+        tasks_from: stop.yaml
 
-    - name: Ensure Prometheus service is running
+    - name: Stop prometheus
       ansible.builtin.include_role:
         name: prometheus
+        tasks_from: stop.yaml

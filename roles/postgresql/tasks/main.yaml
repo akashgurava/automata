@@ -21,8 +21,9 @@
   register: check_pg_data
   changed_when: false
   # rc 0 => postgres service is running fine
+  # rc 3 => DBMS folder is correct but the server is not running
   # rc 4 => database data does not exist at `postgresql_user_data_dir` or is corrupted
-  failed_when: check_pg_data.rc not in (0, 4)
+  failed_when: check_pg_data.rc not in (0, 3, 4)
 
 - name: Initialize PostgreSQL Data
   ansible.builtin.include_tasks: handlers/initdb.yaml

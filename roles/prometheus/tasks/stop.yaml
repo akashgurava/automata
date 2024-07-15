@@ -1,0 +1,10 @@
+- name: Find Prometheus PID
+  ansible.builtin.command: pgrep -f "{{ user_bin_dir }}/prometheus"
+  register: prometheus_pid
+  changed_when: false
+  failed_when: false
+
+- name: Stop Prometheus
+  ansible.builtin.command: kill {{ prometheus_pid.stdout }}
+  when: prometheus_pid.stdout != ""
+  changed_when: true
