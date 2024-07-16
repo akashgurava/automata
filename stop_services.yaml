@@ -15,3 +15,8 @@
       ansible.builtin.include_role:
         name: prometheus
         tasks_from: stop.yaml
+
+    - name: Stop node_exporter
+      ansible.builtin.include_role:
+        name: node_exporter
+        tasks_from: stop.yaml

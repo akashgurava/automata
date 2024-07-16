@@ -8,7 +8,7 @@
 
 - name: Check if Prometheus binary symlink exists
   ansible.builtin.stat:
-    path: "{{ ansible_env.HOME }}/bin/prometheus"
+    path: "{{ user_bin_dir }}/prometheus"
   register: prometheus_symlink
   when:
     - check_prometheus_service.status == -1 and 'Connection refused' in check_prometheus_service.msg
@@ -30,7 +30,7 @@
   when:
     - check_prometheus_service.status == -1 and 'Connection refused' in check_prometheus_service.msg
 
-- name: Ensure User config directory exists
+- name: Ensure Prometheus logs directory exists
   ansible.builtin.file:
     path: "{{ prometheus_logs_dir }}"
     state: directory
