@@ -1,0 +1,29 @@
+- name: Install PostgreSQL
+  ansible.builtin.include_tasks: installation.yaml
+  when: postgresql_status.rc == 2
+
+- name: Check PostgreSQL status after install
+  ansible.builtin.include_tasks: check_status.yaml
+  vars:
+    postgresql_success_rc: [0, 3, 4]
+
+- name: Initialize Postgres data
+  ansible.builtin.include_tasks: initb.yaml
+  when: postgresql_status.rc == 4
+
+- name: Ensure PostgreSQL DB log directory exists
+  ansible.builtin.file:
+    path: "{{ postgresql_log_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: Start PostgreSQL service
+  ansible.builtin.command: "pg_ctl -D {{ postgresql_user_data_dir }} start -l {{ postgresql_log_dir }}/{{ lookup('pipe', 'date +%Y%m%d%H%M%S') }}.log"
+  environment:
+    PATH: "{{ user_bin_dir }}:{{ ansible_env.PATH }}"
+  changed_when: true
+
+- name: Check PostgreSQL status
+  ansible.builtin.include_tasks: check_status.yaml
+  vars:
+    postgresql_success_rc: [0]

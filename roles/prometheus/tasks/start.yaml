@@ -1,0 +1,43 @@
+- name: Check if Prometheus binary symlink exists
+  ansible.builtin.stat:
+    path: "{{ user_bin_dir }}/prometheus"
+  register: prometheus_symlink
+
+- name: Install Prometheus
+  ansible.builtin.include_tasks: installation.yaml
+  when:
+    - not prometheus_symlink.stat.exists
+
+- name: Ensure User config directory exists
+  ansible.builtin.file:
+    path: "{{ prometheus_data_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: Copy Prometheus config
+  ansible.builtin.include_tasks: copy_config.yaml
+
+- name: Ensure Prometheus logs directory exists
+  ansible.builtin.file:
+    path: "{{ prometheus_logs_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: Start Prometheus service
+  ansible.builtin.shell: >
+    {{ user_bin_dir }}/prometheus
+    --config.file={{ prometheus_cfg_file }}
+    --storage.tsdb.path={{ prometheus_data_dir }}
+    --log.level=info
+    --log.format=logfmt
+    > {{ prometheus_logs_dir }}/{{ lookup('pipe', 'date +%Y%m%d%H%M%S') }}.log 2>&1 &
+  changed_when: true
+
+- name: Wait for Prometheus to be up
+  ansible.builtin.uri:
+    url: "http://localhost:{{ prometheus_port }}"
+    return_content: false
+  register: wait_for_prometheus
+  retries: 5
+  delay: 10
+  until: wait_for_prometheus.status == 200

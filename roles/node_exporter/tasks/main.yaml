@@ -1,43 +1,11 @@
-- name: Check if node_exporter is running
+- name: Check node_exporter service is running
   ansible.builtin.uri:
-    url: http://localhost:9100
+    url: "http://localhost:{{ node_exporter_port }}"
     return_content: false
-  register: check_node_exporter_service
+  register: node_exporter_status
   changed_when: false
   failed_when: false
 
-- name: Check if node_exporter binary symlink exists
-  ansible.builtin.stat:
-    path: "{{ user_bin_dir }}/node_exporter"
-  register: node_exporter_symlink
-  when:
-    - check_node_exporter_service.status == -1 and 'Connection refused' in check_node_exporter_service.msg
-
-- name: Install node_exporter
-  ansible.builtin.include_tasks: handlers/installation.yaml
-  when:
-    - check_node_exporter_service.status == -1 and 'Connection refused' in check_node_exporter_service.msg
-    - not node_exporter_symlink.stat.exists
-
-- name: Ensure node_exporter logs directory exists
-  ansible.builtin.file:
-    path: "{{ node_exporter_logs_dir }}"
-    state: directory
-    mode: "0755"
-
-- name: Start node_exporter service
-  ansible.builtin.shell: >
-    {{ user_bin_dir }}/node_exporter
-    > {{ node_exporter_logs_dir }}/{{ lookup('pipe', 'date +%Y%m%d%H%M%S') }}.log 2>&1 &
-  when: check_node_exporter_service.status not in (200, 301, 302)
-  changed_when: true
-
-- name: Wait for node_exporter to be up
-  ansible.builtin.uri:
-    url: http://localhost:9100
-    return_content: false
-  register: wait_for_node_exporter
-  retries: 5
-  delay: 10
-  until: wait_for_node_exporter.status == 200
-  when: check_node_exporter_service.status not in (200, 301, 302)
+- name: Start node_exporter service, install if required
+  ansible.builtin.include_tasks: start.yaml
+  when: node_exporter_status.status == -1 and 'Connection refused' in node_exporter_status.msg

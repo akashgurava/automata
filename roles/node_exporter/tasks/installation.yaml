@@ -6,25 +6,26 @@
 
 - name: Download node_exporter
   ansible.builtin.get_url:
-    url: https://github.com/prometheus/node_exporter/releases/download/v1.8.2/node_exporter-1.8.2.darwin-arm64.tar.gz
-    dest: /tmp/node_exporter-1.8.2.darwin-arm64.tar.gz
+    url: "https://github.com/prometheus/node_exporter/releases/\
+      download/v{{ node_exporter_version }}/node_exporter-{{ node_exporter_version }}.darwin-arm64.tar.gz"
+    dest: /tmp/node_exporter-{{ node_exporter_version }}.darwin-arm64.tar.gz
     mode: "0755"
 
 # The get_url command is not giving correct permissions. So manually set.
 - name: Ensure downloaded node_exporter tar.gz file has correct permissions
   ansible.builtin.file:
-    path: /tmp/node_exporter-1.8.2.darwin-arm64.tar.gz
+    path: /tmp/node_exporter-{{ node_exporter_version }}.darwin-arm64.tar.gz
     mode: "0755"
 
 - name: Extract node_exporter
   ansible.builtin.unarchive:
-    src: /tmp/node_exporter-1.8.2.darwin-arm64.tar.gz
+    src: /tmp/node_exporter-{{ node_exporter_version }}.darwin-arm64.tar.gz
     dest: "{{ node_exporter_bin_dir }}/"
     remote_src: true
 
 - name: Create symbolic links for node_exporter binaries
   ansible.builtin.file:
-    src: "{{ node_exporter_bin_dir }}/node_exporter-1.8.2.darwin-arm64/node_exporter"
+    src: "{{ node_exporter_bin_dir }}/node_exporter-{{ node_exporter_version }}.darwin-arm64/node_exporter"
     dest: "{{ user_bin_dir }}/node_exporter"
     state: link
     force: true

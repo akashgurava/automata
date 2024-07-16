@@ -3,7 +3,6 @@
     path: "{{ user_cfg_dir }}"
     state: directory
     mode: "0755"
-  register: prom_cfg_dir
 
 - name: Copy prometheus.yaml
   ansible.builtin.copy:

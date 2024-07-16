@@ -1,10 +1,10 @@
 - name: Find node_exporter PID
   ansible.builtin.command: pgrep -f "{{ user_bin_dir }}/node_exporter"
-  register: node_exporter_pid
+  register: node_exporter_running_pid
   changed_when: false
   failed_when: false
 
 - name: Stop node_exporter
-  ansible.builtin.command: kill {{ node_exporter_pid.stdout }}
-  when: node_exporter_pid.stdout != ""
+  ansible.builtin.command: kill {{ node_exporter_running_pid.stdout }}
+  when: node_exporter_running_pid.stdout != ""
   changed_when: true

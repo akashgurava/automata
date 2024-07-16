@@ -1,0 +1,30 @@
+- name: Check if node_exporter binary symlink exists
+  ansible.builtin.stat:
+    path: "{{ user_bin_dir }}/node_exporter"
+  register: node_exporter_symlink
+
+- name: Install node_exporter
+  ansible.builtin.include_tasks: installation.yaml
+  when:
+    - not node_exporter_symlink.stat.exists
+
+- name: Ensure node_exporter logs directory exists
+  ansible.builtin.file:
+    path: "{{ node_exporter_logs_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: Start node_exporter service
+  ansible.builtin.shell: >
+    {{ user_bin_dir }}/node_exporter
+    > {{ node_exporter_logs_dir }}/{{ lookup('pipe', 'date +%Y%m%d%H%M%S') }}.log 2>&1 &
+  changed_when: true
+
+- name: Wait for node_exporter to be up
+  ansible.builtin.uri:
+    url: "http://localhost:{{ node_exporter_port }}"
+    return_content: false
+  register: wait_for_node_exporter
+  retries: 5
+  delay: 10
+  until: wait_for_node_exporter.status == 200

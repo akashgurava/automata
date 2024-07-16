@@ -5,15 +5,16 @@
     name: "postgresql@{{ postgresql_version }}"
     state: present
 
-- name: Stop PostgreSQL
-  ansible.builtin.include_tasks: tasks/stop.yaml
+- name: Ensure brew PostgreSQL service is stopped
+  ansible.builtin.command: brew services stop postgresql@{{ postgresql_version }}
+  changed_when: true
 
 - name: Get list of PostgreSQL executables
   ansible.builtin.find:
     paths: "{{ postgresql_brew_bin_dir }}"
     file_type: file
     recurse: false
-  register: postgres_executables
+  register: list_postgres_executables
 
 - name: Ensure user bin directory exists
   ansible.builtin.file:
@@ -26,4 +27,4 @@
     src: "{{ item.path }}"
     dest: "{{ user_bin_dir }}/{{ item.path | basename }}"
     state: link
-  loop: "{{ postgres_executables.files }}"
+  loop: "{{ list_postgres_executables.files }}"

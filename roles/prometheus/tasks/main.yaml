@@ -1,58 +1,11 @@
-- name: Check if Prometheus is running
+- name: Check Prometheus service is running
   ansible.builtin.uri:
-    url: http://localhost:9090
+    url: "http://localhost:{{ prometheus_port }}"
     return_content: false
-  register: check_prometheus_service
+  register: prometheus_status
   changed_when: false
   failed_when: false
 
-- name: Check if Prometheus binary symlink exists
-  ansible.builtin.stat:
-    path: "{{ user_bin_dir }}/prometheus"
-  register: prometheus_symlink
-  when:
-    - check_prometheus_service.status == -1 and 'Connection refused' in check_prometheus_service.msg
-
-- name: Install Prometheus
-  ansible.builtin.include_tasks: handlers/installation.yaml
-  when:
-    - check_prometheus_service.status == -1 and 'Connection refused' in check_prometheus_service.msg
-    - not prometheus_symlink.stat.exists
-
-- name: Ensure User config directory exists
-  ansible.builtin.file:
-    path: "{{ prometheus_data_dir }}"
-    state: directory
-    mode: "0755"
-
-- name: Copy Prometheus config
-  ansible.builtin.include_tasks: handlers/copy_config.yaml
-  when:
-    - check_prometheus_service.status == -1 and 'Connection refused' in check_prometheus_service.msg
-
-- name: Ensure Prometheus logs directory exists
-  ansible.builtin.file:
-    path: "{{ prometheus_logs_dir }}"
-    state: directory
-    mode: "0755"
-
-- name: Start Prometheus service
-  ansible.builtin.shell: >
-    {{ user_bin_dir }}/prometheus
-    --config.file={{ prometheus_cfg_file }}
-    --storage.tsdb.path={{ prometheus_data_dir }}
-    --log.level=info
-    --log.format=logfmt
-    > {{ prometheus_logs_dir }}/{{ lookup('pipe', 'date +%Y%m%d%H%M%S') }}.log 2>&1 &
-  when: check_prometheus_service.status not in (200, 301, 302)
-  changed_when: true
-
-- name: Wait for Prometheus to be up
-  ansible.builtin.uri:
-    url: http://localhost:9090
-    return_content: false
-  register: wait_for_prometheus
-  retries: 5
-  delay: 10
-  until: wait_for_prometheus.status == 200
-  when: check_prometheus_service.status not in (200, 301, 302)
+- name: Start Prometheus service, install and initdb if required
+  ansible.builtin.include_tasks: start.yaml
+  when: prometheus_status.status == -1 and 'Connection refused' in prometheus_status.msg
