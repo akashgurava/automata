@@ -1,0 +1,11 @@
+- name: Ensure User config directory exists
+  ansible.builtin.file:
+    path: "{{ user_cfg_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: Copy grafana.ini
+  ansible.builtin.copy:
+    src: "{{ role_path }}/files/grafana.ini"
+    dest: "{{ grafana_cfg_file }}"
+    mode: "0755"

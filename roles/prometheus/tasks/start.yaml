@@ -16,12 +16,6 @@
   when:
     - not prometheus_symlink.stat.exists
 
-- name: Ensure User config directory exists
-  ansible.builtin.file:
-    path: "{{ prometheus_data_dir }}"
-    state: directory
-    mode: "0755"
-
 - name: Copy Prometheus config
   ansible.builtin.include_tasks: copy_config.yaml
 

@@ -1,0 +1,11 @@
+- name: Check Grafana service status
+  ansible.builtin.include_role:
+    name: prom
+    tasks_from: status.yaml
+  vars:
+    prom_service_name: grafana
+    prom_service_port: "{{ grafana_port }}"
+
+- name: Start Grafana service, install if required
+  ansible.builtin.include_tasks: start.yaml
+  when: prom_service.status == -1 and 'Connection refused' in prom_service.msg

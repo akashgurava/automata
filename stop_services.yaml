@@ -20,3 +20,8 @@
       ansible.builtin.include_role:
         name: node_exporter
         tasks_from: stop.yaml
+
+    - name: Stop grafana
+      ansible.builtin.include_role:
+        name: grafana
+        tasks_from: stop.yaml

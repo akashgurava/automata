@@ -17,3 +17,7 @@
     - name: Ensure node_exporter service is running
       ansible.builtin.include_role:
         name: node_exporter
+
+    - name: Ensure Grafana service is running
+      ansible.builtin.include_role:
+        name: grafana
