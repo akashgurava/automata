@@ -1,0 +1,1 @@
+prom_bin_dir: "{{ ansible_env.HOME }}/{{ prom_service_name }}"

@@ -1,11 +1,11 @@
-- name: Check Prometheus service is running
-  ansible.builtin.uri:
-    url: "http://localhost:{{ prometheus_port }}"
-    return_content: false
-  register: prometheus_status
-  changed_when: false
-  failed_when: false
+- name: Check Prometheus service status
+  ansible.builtin.include_role:
+    name: prom
+    tasks_from: status.yaml
+  vars:
+    prom_service_name: prometheus
+    prom_service_port: "{{ prometheus_port }}"
 
 - name: Start Prometheus service, install and initdb if required
   ansible.builtin.include_tasks: start.yaml
-  when: prometheus_status.status == -1 and 'Connection refused' in prometheus_status.msg
+  when: prom_service.status == -1 and 'Connection refused' in prom_service.msg

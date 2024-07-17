@@ -1,0 +1,47 @@
+# Vars:
+#   prom_service_name: Name of service
+#   prom_download_url: url to download the archive
+#   prom_archive_name: name of folder inside the extracted archive
+#   prom_executables: list of executable file names
+
+- name: Download {{ prom_service_name }}
+  ansible.builtin.get_url:
+    url: "{{ prom_download_url }}"
+    dest: "/tmp/{{ prom_service_name }}.darwin-arm64.tar.gz"
+    mode: "0755"
+
+# The get_url command is not giving correct permissions. So manually set.
+- name: Ensure downloaded {{ prom_service_name }} tar.gz file has correct permissions
+  ansible.builtin.file:
+    path: "/tmp/{{ prom_service_name }}.darwin-arm64.tar.gz"
+    mode: "0755"
+
+- name: Ensure {{ prom_service_name }} bin directory exists
+  ansible.builtin.file:
+    path: "{{ prom_bin_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: Extract {{ prom_service_name }}
+  ansible.builtin.unarchive:
+    src: "/tmp/{{ prom_service_name }}.darwin-arm64.tar.gz"
+    dest: "{{ prom_bin_dir }}"
+    remote_src: true
+
+- name: Remove temp downloaded archive
+  ansible.builtin.file:
+    path: "/tmp/{{ prom_service_name }}.darwin-arm64.tar.gz"
+    state: absent
+
+- name: Ensure user bin directory exists
+  ansible.builtin.file:
+    path: "{{ user_bin_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: Create symbolic links for {{ prom_service_name }} binaries
+  ansible.builtin.file:
+    src: "{{ prom_bin_dir }}/{{ prom_archive_name }}/{{ item }}"
+    dest: "{{ user_bin_dir }}/{{ item }}"
+    state: link
+  loop: "{{ prom_executables }}"

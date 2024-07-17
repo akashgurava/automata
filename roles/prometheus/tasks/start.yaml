@@ -4,7 +4,15 @@
   register: prometheus_symlink
 
 - name: Install Prometheus
-  ansible.builtin.include_tasks: installation.yaml
+  ansible.builtin.include_role:
+    name: prom
+    tasks_from: installation.yaml
+  vars:
+    prom_service_name: prometheus
+    prom_download_url: >
+      https://github.com/prometheus/prometheus/releases/download/v{{ prometheus_version }}/prometheus-{{ prometheus_version }}.darwin-arm64.tar.gz
+    prom_archive_name: prometheus-{{ prometheus_version }}.darwin-arm64
+    prom_executables: [prometheus, promtool]
   when:
     - not prometheus_symlink.stat.exists
 
@@ -24,20 +32,16 @@
     mode: "0755"
 
 - name: Start Prometheus service
-  ansible.builtin.shell: >
-    {{ user_bin_dir }}/prometheus
-    --config.file={{ prometheus_cfg_file }}
-    --storage.tsdb.path={{ prometheus_data_dir }}
-    --log.level=info
-    --log.format=logfmt
-    > {{ prometheus_logs_dir }}/{{ lookup('pipe', 'date +%Y%m%d%H%M%S') }}.log 2>&1 &
-  changed_when: true
-
-- name: Wait for Prometheus to be up
-  ansible.builtin.uri:
-    url: "http://localhost:{{ prometheus_port }}"
-    return_content: false
-  register: wait_for_prometheus
-  retries: 5
-  delay: 10
-  until: wait_for_prometheus.status == 200
+  ansible.builtin.include_role:
+    name: prom
+    tasks_from: start.yaml
+  vars:
+    prom_service_name: prometheus
+    prom_service_port: "{{ prometheus_port }}"
+    prom_start_cmd: >-
+      {{ user_bin_dir }}/prometheus
+      --config.file={{ prometheus_cfg_file }}
+      --storage.tsdb.path={{ prometheus_data_dir }}
+      --log.level=info
+      --log.format=logfmt
+    prom_logs_dir: "{{ prometheus_logs_dir }}"

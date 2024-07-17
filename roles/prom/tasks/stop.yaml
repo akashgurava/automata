@@ -1,0 +1,10 @@
+- name: Find {{ prom_service_name }} PID
+  ansible.builtin.command: pgrep -f "{{ user_bin_dir }}/{{ prom_executable_name }}"
+  register: prom_service_pid
+  changed_when: false
+  failed_when: false
+
+- name: Stop {{ prom_service_name }}
+  ansible.builtin.command: kill {{ prom_service_pid.stdout }}
+  when: prom_service_pid.stdout != ""
+  changed_when: true

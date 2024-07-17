@@ -1,10 +1,7 @@
-- name: Find Prometheus PID
-  ansible.builtin.command: pgrep -f "{{ user_bin_dir }}/prometheus"
-  register: prometheus_pid
-  changed_when: false
-  failed_when: false
-
-- name: Stop Prometheus
-  ansible.builtin.command: kill {{ prometheus_pid.stdout }}
-  when: prometheus_pid.stdout != ""
-  changed_when: true
+- name: Stop service
+  ansible.builtin.include_role:
+    name: prom
+    tasks_from: stop.yaml
+  vars:
+    prom_service_name: prometheus
+    prom_executable_name: prometheus
