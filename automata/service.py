@@ -6,7 +6,6 @@ import socket
 import subprocess
 import shutil
 from time import sleep
-import yaml
 from datetime import datetime
 from dotenv import load_dotenv
 from loguru import logger
@@ -15,7 +14,7 @@ from signal import SIGTERM
 from typing import Any, Dict, List
 
 from automata.utils import ensure_dir_exists
-from automata.install import BinaryInstaller, Installer, BrewInstaller
+from automata.install import Installer
 
 
 # Load environment variables from a .env file
@@ -56,17 +55,17 @@ def resolve_variables(data: Any, context: Dict[str, Any]) -> Any:
     if isinstance(data, dict):
         # Update context with the current level data first to resolve at the same level
         new_context = context.copy()
-        new_context.update(data) # type: ignore
+        new_context.update(data)  # type: ignore
 
         resolved_data = {}
-        for key, value in data.items(): # type: ignore
+        for key, value in data.items():  # type: ignore
             if isinstance(value, str):
                 resolved_data[key] = expandvars_recursive(value, new_context)
             else:
                 resolved_data[key] = resolve_variables(value, new_context)
-        return resolved_data # type: ignore
+        return resolved_data  # type: ignore
     elif isinstance(data, list):
-        return [resolve_variables(item, context) for item in data] # type: ignore
+        return [resolve_variables(item, context) for item in data]  # type: ignore
     else:
         return data
 
@@ -121,6 +120,7 @@ class Service:
         installer: Installer,
         configs: List[Config],
         start_cmd: str,
+        depends_on: List[str],
     ):
         self.name = name
         self.port = port
@@ -129,6 +129,7 @@ class Service:
         self.installer = installer
         self.configs = configs
         self.start_cmd = start_cmd
+        self.depends_on = depends_on
 
     def __repr__(self):
         return (
@@ -136,63 +137,6 @@ class Service:
             f"logs_dir={self.logs_dir}, installer={self.installer}, configs={self.configs}, "
             f"start_cmd={self.start_cmd})"
         )
-
-    @staticmethod
-    def create_services(yaml_file_path: str) -> list[Service]:
-        with open(yaml_file_path, "r") as f:
-            data = yaml.safe_load(f)
-        parsed_yaml = resolve_variables(data, {})
-        bin_path = parsed_yaml["bin_path"]
-        services: list[Service] = []
-        for service_data in parsed_yaml.get("services", []):
-            name = service_data["name"]
-            port = service_data["port"]
-            version = service_data["version"]
-            logs_dir = service_data["logs_dir"]
-            start_cmd = service_data["start_cmd"]
-
-            installer_data = service_data["installer"]
-            if installer_data["type"] == "binary":
-                installer = BinaryInstaller(
-                    service_name=name,
-                    install_path=installer_data["install_path"],
-                    bin_path=bin_path,
-                    executables=installer_data["executables"],
-                    download_url=installer_data["download_url"],
-                    is_archive=installer_data["is_archive"],
-                    post_install_cmd=installer_data.get("post_install_cmd"),
-                )
-                configs = [
-                    Config(name, config_item["src"], config_item["dest"])
-                    for config_item in service_data.get("config", [])
-                ]
-                
-            elif installer_data["type"] == "brew":
-                installer = BrewInstaller(
-                    service_name=name,
-                    install_path=installer_data["install_path"],
-                    bin_path=bin_path,
-                    executables=installer_data["executables"],
-                    package_name=installer_data["package_name"],
-                    post_install_cmd=installer_data.get("post_install_cmd"),
-                )
-                configs = [
-                    Config(name, config_item["src"], config_item["dest"])
-                    for config_item in service_data.get("config", [])
-                ]
-            else:
-                raise ValueError(f"Invalid installer type: {installer_data["type"]}")
-            service = Service(
-                    name=name,
-                    port=port,
-                    version=version,
-                    logs_dir=logs_dir,
-                    installer=installer,
-                    configs=configs,
-                    start_cmd=start_cmd,
-                )
-            services.append(service)
-        return services
 
     def is_service_open(self) -> bool:
         """
@@ -211,7 +155,7 @@ class Service:
                 return False
 
     def install(self):
-        """Install the service"""
+        """Install the service."""
         self.installer.install()
 
     def start_service(self):
@@ -258,6 +202,7 @@ class Service:
         )
 
     def stop_service(self):
+        """Stop the service."""
         if not self.is_service_open():
             logger.info(f"Service: {self.name}. Service is not running.")
             return
@@ -271,6 +216,6 @@ class Service:
                 pass
 
     def uninstall(self):
-        """Uninstall the service"""
+        """Uninstall the service."""
         self.stop_service()
         self.installer.uninstall()

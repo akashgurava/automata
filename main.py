@@ -1,5 +1,7 @@
+# main.py
+
 import argparse
-from automata import *
+from automata.service_manager import ServiceManager
 from loguru import logger
 
 
@@ -40,48 +42,36 @@ def main():
         logger.info("No arguments provided. Defaulting to start all services.")
 
     yaml_file_path = args.yaml_file
-    services = Service.create_services(yaml_file_path)
+    service_manager = ServiceManager(yaml_file_path)
 
     if args.install_all:
         logger.info("Installing all services")
-        for service in services:
-            service.install()
+        service_manager.install_all_services()
     elif args.install:
         logger.info(f"Installing specific services: {args.install}")
         service_names = args.install.split(",")
-        for service in services:
-            if service.name in service_names:
-                service.install()
+        service_manager.install_specific_services(service_names)
     elif args.start_all:
         logger.info("Starting all services")
-        for service in services:
-            service.start_service()
+        service_manager.start_all_services()
     elif args.start:
         logger.info(f"Starting specific services: {args.start}")
         service_names = args.start.split(",")
-        for service in services:
-            if service.name in service_names:
-                service.start_service()
+        service_manager.start_specific_services(service_names)
     elif args.stop_all:
         logger.info("Stopping all services")
-        for service in services:
-            service.stop_service()
+        service_manager.stop_all_services()
     elif args.stop:
         logger.info(f"Stopping specific services: {args.stop}")
         service_names = args.stop.split(",")
-        for service in services:
-            if service.name in service_names:
-                service.stop_service()
+        service_manager.stop_specific_services(service_names)
     elif args.uninstall_all:
         logger.info("Uninstalling all services")
-        for service in services:
-            service.uninstall()
+        service_manager.uninstall_all_services()
     elif args.uninstall:
         logger.info(f"Uninstalling specific services: {args.uninstall}")
         service_names = args.uninstall.split(",")
-        for service in services:
-            if service.name in service_names:
-                service.uninstall()
+        service_manager.uninstall_specific_services(service_names)
 
 
 if __name__ == "__main__":
