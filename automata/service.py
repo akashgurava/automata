@@ -210,6 +210,10 @@ class Service:
             except (socket.timeout, ConnectionRefusedError):
                 return False
 
+    def install(self):
+        """Install the service"""
+        self.installer.install()
+
     def start_service(self):
         """
         Start the service. If the service is not already running, check if it's installed,
@@ -266,7 +270,7 @@ class Service:
             except:
                 pass
 
-    def uninstall_service(self):
+    def uninstall(self):
         """Uninstall the service"""
         self.stop_service()
         self.installer.uninstall()
