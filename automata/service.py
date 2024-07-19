@@ -9,11 +9,12 @@ from time import sleep
 import yaml
 from datetime import datetime
 from dotenv import load_dotenv
-from typing import Any, Dict, List
+from loguru import logger
 from psutil import process_iter
 from signal import SIGTERM
+from typing import Any, Dict, List
 
-from automata.utils import ensure_dir_exists, LOGGER
+from automata.utils import ensure_dir_exists
 from automata.install import BinaryInstaller, Installer, BrewInstaller
 
 
@@ -94,14 +95,14 @@ class Config:
     def apply(self):
         if os.path.isdir(self.src):
             ensure_dir_exists(self.dest)
-            LOGGER.info(
+            logger.info(
                 f"Service: {self.service}. Src: {self.src}. Dest: {self.dest}. Copyting src dir contents."
             )
             shutil.copytree(self.src, self.dest, dirs_exist_ok=True)
         else:
             dest_dir = os.path.dirname(self.dest)
             ensure_dir_exists(dest_dir)
-            LOGGER.info(
+            logger.info(
                 f"Service: {self.service}. Src: {self.src}. Dest: {self.dest}. Copyting src file contents."
             )
             shutil.copy2(self.src, self.dest)
@@ -216,7 +217,7 @@ class Service:
         logged to a file.
         """
         if self.is_service_open():
-            LOGGER.info(f"Service: {self.name}. Service already running.")
+            logger.info(f"Service: {self.name}. Service already running.")
             return
 
         self.installer.install()
@@ -230,37 +231,37 @@ class Service:
         log_file = os.path.join(self.logs_dir, f"{self.name}_{timestamp}.log")
 
         with open(log_file, "wb") as log:
-            LOGGER.info(
+            logger.info(
                 f"Service: {self.name}. Command: {self.start_cmd}. Starting service."
             )
             process = subprocess.Popen(
                 self.start_cmd, shell=True, stdout=log, stderr=log
             )
-            LOGGER.info(
+            logger.info(
                 f"Service: {self.name}. PID {process.pid}. Log: {log_file}. Service triggered."
             )
 
         # Ensure the service is running
         for _ in range(5):
             if self.is_service_open():
-                LOGGER.info(
+                logger.info(
                     f"Service: {self.name}. PID {process.pid}. Log: {log_file}. Service running."
                 )
                 return
             sleep(3)
-        LOGGER.warn(
+        logger.warning(
             f"Service: {self.name}. PID {process.pid}. Log: {log_file}. Service not running."
         )
 
     def stop_service(self):
         if not self.is_service_open():
-            LOGGER.info(f"Service: {self.name}. Service is not running.")
+            logger.info(f"Service: {self.name}. Service is not running.")
             return
         for proc in process_iter():
             try:
                 for conns in proc.connections(kind="inet"):
                     if conns.laddr.port == self.port:
-                        LOGGER.info(f"Service: {self.name}. PID: {proc.pid}. Stopping.")
+                        logger.info(f"Service: {self.name}. PID: {proc.pid}. Stopping.")
                         proc.send_signal(SIGTERM)  # or SIGKILL
             except:
                 pass

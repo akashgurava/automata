@@ -5,16 +5,16 @@ This module works best under the assumption that services are installed at `inst
 and the executables are symlinked to a common `bin_path` for all services.
 """
 
-from datetime import datetime
 import os
 import shutil
 import subprocess
-from typing import Optional
 import urllib.request
 import tarfile
 import zipfile
+from typing import Optional
+from loguru import logger
 
-from automata.utils import LOGGER, ensure_dir_exists
+from automata.utils import ensure_dir_exists, log_subprocess_output, log_filename
 
 
 def expandvars_recursive(path: str) -> str:
@@ -28,17 +28,15 @@ def expandvars_recursive(path: str) -> str:
 
 def run_command_with_logs(service_name: str, command_type: str, command: str):
     """Run a command and write logs."""
-    ensure_dir_exists("./logs")
-    log_file_name = f"./logs/{service_name}-{command_type}-{datetime.now().strftime('%Y%m%d-%H%M%s')}.log"
-    with open(log_file_name, "w") as f:
-        LOGGER.debug(
-            f"Service: {service_name}. Command Type: {command_type}. Command: {command}. Log: {log_file_name}. Running."
-        )
-        process = subprocess.Popen(command, shell=True, stdout=f, stderr=f)
+    process = subprocess.Popen(
+        command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
+    log_subprocess_output(process.stdout)  # type: ignore
+    log_subprocess_output(process.stderr)  # type: ignore
 
     if process.wait() != 0:
         raise ValueError(
-            f"Service: {service_name}. Command Type: {command_type}. Command: {command}. Log: {log_file_name}. Failed check logs."
+            f"Service: {service_name}. Command Type: {command_type}. Command: {command}. Log: {log_filename}. Failed check logs."
         )
 
 
@@ -120,26 +118,26 @@ class Installer:
                 self.install_path, executable_src_rel_path
             )
             if os.path.islink(executable_path):
-                LOGGER.debug(
+                logger.debug(
                     f"Service: {self.service_name}. Executable: {executable}. Symlink."
                 )
                 link_path = os.readlink(executable_path)
                 if not os.path.exists(link_path):
-                    LOGGER.debug(
+                    logger.debug(
                         f"Service: {self.service_name}. Executable: {executable}. Symlink is invalid."
                     )
                     invalid_executables.append(executable)
                 elif link_path != executable_src_path:
-                    LOGGER.debug(
+                    logger.debug(
                         f"Service: {self.service_name}. Executable: {executable}. Symlink is not pointing to expected location."
                     )
                     invalid_executables.append(executable)
                 else:
-                    LOGGER.debug(
+                    logger.debug(
                         f"Service: {self.service_name}. Executable: {executable}. Symlink is valid."
                     )
             elif not os.path.exists(executable_path):
-                LOGGER.debug(
+                logger.debug(
                     f"Service: {self.service_name}. Executable: {executable}. Path does not exist."
                 )
                 invalid_executables.append(executable)
@@ -157,10 +155,10 @@ class Installer:
         """
         invalid_executables = self.invalid_executables
         if len(invalid_executables) == 0:
-            LOGGER.debug(f"Service: {self.service_name}. Service is installed.")
+            logger.debug(f"Service: {self.service_name}. Service is installed.")
             return True
         else:
-            LOGGER.debug(
+            logger.debug(
                 f"Service: {self.service_name}. Invalid executables: {invalid_executables}. Service is not installed."
             )
             return False
@@ -173,7 +171,7 @@ class Installer:
             )
             symlink_path = os.path.join(self.bin_path, executable)
             if not os.path.exists(executable_src_path):
-                LOGGER.error(
+                logger.error(
                     f"Service: {self.service_name}. Executable source path does not exist: {executable_src_path}"
                 )
                 raise Exception(
@@ -182,7 +180,7 @@ class Installer:
             if os.path.exists(symlink_path) or os.path.islink(symlink_path):
                 os.remove(symlink_path)
             os.symlink(executable_src_path, symlink_path)
-            LOGGER.info(
+            logger.info(
                 f"Service: {self.service_name}. Created symlink: {symlink_path} -> {executable_src_path}"
             )
             self._is_changed = True
@@ -197,13 +195,13 @@ class Installer:
 
     def post_install(self):
         if self.post_install_cmd is None:
-            LOGGER.debug(f"Service: {self.service_name}. No post install action.")
+            logger.debug(f"Service: {self.service_name}. No post install action.")
             return
-        LOGGER.info(
+        logger.info(
             f"Service: {self.service_name}. Command: {self.post_install_cmd}. Running post install."
         )
         run_command_with_logs(self.service_name, "post_install", self.post_install_cmd)
-        LOGGER.info(
+        logger.info(
             f"Service: {self.service_name}. Command: {self.post_install_cmd}. Post install complete."
         )
 
@@ -213,21 +211,21 @@ class Installer:
             symlink_path = os.path.join(self.bin_path, executable)
             if os.path.exists(symlink_path) or os.path.islink(symlink_path):
                 os.remove(symlink_path)
-                LOGGER.info(
+                logger.info(
                     f"Service: {self.service_name}. Removed symlink: {symlink_path}"
                 )
             else:
-                LOGGER.debug(
+                logger.debug(
                     f"Service: {self.service_name}. Symlink does not exist: {symlink_path}"
                 )
 
         if os.path.exists(self.install_path):
             shutil.rmtree(self.install_path)
-            LOGGER.info(
+            logger.info(
                 f"Service: {self.service_name}. Removed install directory: {self.install_path}"
             )
         else:
-            LOGGER.debug(
+            logger.debug(
                 f"Service: {self.service_name}. Install directory does not exist: {self.install_path}"
             )
 
@@ -273,17 +271,17 @@ class BinaryInstaller(Installer):
 
     def _download_file(self, url: str, dest_path: str):
         """Download a file from a URL to a destination path."""
-        LOGGER.info(
+        logger.info(
             f"Service: {self.service_name}. URL: {url}. Destination: {dest_path}. Downloading."
         )
         urllib.request.urlretrieve(url, dest_path)
-        LOGGER.info(
+        logger.info(
             f"Service: {self.service_name}. URL: {url}. Destination: {dest_path}. Downloaded."
         )
 
     def _extract_archive(self, archive_path: str, extract_to: str):
         """Extract an archive to a specified directory."""
-        LOGGER.info(
+        logger.info(
             f"Service: {self.service_name}. Archive Path: {archive_path}. Destination: {extract_to}. Extracting."
         )
         if tarfile.is_tarfile(archive_path):
@@ -294,14 +292,14 @@ class BinaryInstaller(Installer):
                 zip_ref.extractall(path=extract_to)
         else:
             raise ValueError("Service: {self.service_name}. Unsupported archive format")
-        LOGGER.info(
+        logger.info(
             f"Service: {self.service_name}. Archive Path: {archive_path}. Destination: {extract_to}. Extracted."
         )
 
     def install(self):
         """Install the service by downloading and extracting the binary, then creating symlinks."""
         if self.is_installed:
-            LOGGER.info(f"Service: {self.service_name}. Service is already installed.")
+            logger.info(f"Service: {self.service_name}. Service is already installed.")
             return
         ensure_dir_exists(self.install_path)
         ensure_dir_exists(self.bin_path)
@@ -312,7 +310,7 @@ class BinaryInstaller(Installer):
         try:
             self._download_file(self.download_url, archive_path)
         except Exception as exp:
-            LOGGER.exception(
+            logger.exception(
                 f"Service: {self.service_name}. URL: {self.download_url}. Archive path: {archive_path}. Unable to download. Reason: {exp}."
             )
             raise
@@ -321,7 +319,7 @@ class BinaryInstaller(Installer):
             if self.is_archive:
                 self._extract_archive(archive_path, self.install_path)
         except Exception as exp:
-            LOGGER.exception(
+            logger.exception(
                 f"Service: {self.service_name}. Archive path: {archive_path}. Extract path: {self.install_path}. Unable to extract. Reason: {exp}."
             )
             raise
@@ -329,14 +327,14 @@ class BinaryInstaller(Installer):
         try:
             self._create_symlinks()
         except Exception as exp:
-            LOGGER.exception(
+            logger.exception(
                 f"Service: {self.service_name}. Unable to create symlinks. Reason: {exp}."
             )
             raise
 
         if os.path.exists(archive_path):
             os.remove(archive_path)
-            LOGGER.info(
+            logger.info(
                 f"Service: {self.service_name}. Removed archive file: {archive_path}"
             )
 
@@ -376,7 +374,7 @@ class BrewInstaller(Installer):
 
     def install(self) -> None:
         if self.is_installed:
-            LOGGER.info(f"Service: {self.service_name}. Service is already installed.")
+            logger.info(f"Service: {self.service_name}. Service is already installed.")
             return
         ensure_dir_exists(self.bin_path)
         run_command_with_logs(

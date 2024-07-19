@@ -19,6 +19,9 @@ check_env_var() {
 
 # List of required environment variables
 required_env_vars=(
+    "USER_BIN_PATH"
+    "POSTGRES_DB_INIT_PATH"
+    "POSTGRES_DB_INIT_NAME"
     "POSTGRES_DB_PATH"
     "POSTGRES_DB_INIT_PATH"
     "POSTGRES_LOGS_PATH"
@@ -39,15 +42,12 @@ done
 set +e
 log_message "Stop database if running."
 ${USER_BIN_PATH}/pg_ctl -D ${POSTGRES_DB_INIT_PATH} stop || true
-${USER_BIN_PATH}/pg_ctl -D ${POSTGRES_DB_PATH} stop || true
 log_message "Database stopped."
-
 # Check the status of the PostgreSQL database
-${USER_BIN_PATH}/pg_ctl -D ${POSTGRES_DB_PATH}/postgres@${POSTGRES_VERSION} status
-set -e
-
+${USER_BIN_PATH}/pg_ctl -D ${POSTGRES_DB_PATH}/${POSTGRES_DB_INIT_NAME} status
 # Capture the return code of the previous command
 rc=$?
+set -e
 
 # Log messages based on the return code
 if [ $rc -eq 0 ]; then

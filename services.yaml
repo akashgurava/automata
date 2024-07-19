@@ -77,5 +77,5 @@ services:
       post_install_cmd: sh ./config/postgres-initdb.sh
     start_cmd: >-
       ${USER_BIN_PATH}/pg_ctl
-      -D ${POSTGRES_DB_PATH}/postgres@${POSTGRES_VERSION}
+      -D ${POSTGRES_DB_PATH}/${POSTGRES_DB_INIT_NAME}
       start
