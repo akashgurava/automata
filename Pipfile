@@ -4,11 +4,12 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-ansible = "*"
-psycopg2 = "*"
+pyyaml = "*"
+python-dotenv = "*"
+psutil = "*"
 
 [dev-packages]
-ansible-lint = "*"
+black = "*"
 
 [requires]
 python_version = "3.12"

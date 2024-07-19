@@ -3,7 +3,4 @@
     "cSpell.words": [
         "initdb"
     ],
-    "files.associations": {
-        "*.yaml": "ansible"
-    }
 }

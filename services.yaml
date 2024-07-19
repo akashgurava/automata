@@ -1,0 +1,81 @@
+bin_path: ${USER_BIN_PATH}
+cfg_path: ${USER_CFG_PATH}
+services:
+  - name: "Prometheus"
+    port: 9090
+    version: "2.53.1"
+    logs_dir: ${PROMETHEUS_LOGS_PATH}
+    installer:
+      type: binary
+      install_path: ${PROMETHEUS_INSTALL_PATH}
+      executables:
+        prometheus: prometheus-${version}.darwin-arm64/prometheus
+        promtool: prometheus-${version}.darwin-arm64/promtool
+      download_url: https://github.com/prometheus/prometheus/releases/download/v${version}/prometheus-${version}.darwin-arm64.tar.gz
+      is_archive: true
+    config:
+      - src: ./config/prometheus.yaml
+        dest: ${PROMETHEUS_CFG_PATH}
+    start_cmd: >-
+      ${USER_BIN_PATH}/prometheus
+      --config.file=${PROMETHEUS_CFG_PATH}
+      --storage.tsdb.path=${PROMETHEUS_DB_PATH}
+      --log.level=info
+      --log.format=logfmt
+
+  - name: "Node Exporter"
+    port: 9100
+    version: "1.8.2"
+    logs_dir: ${NODE_EXPORTER_LOGS_PATH}
+    installer:
+      type: binary
+      install_path: ${NODE_EXPORTER_INSTALL_PATH}
+      executables:
+        node_exporter: node_exporter-${version}.darwin-arm64/node_exporter
+      download_url: "https://github.com/prometheus/node_exporter/releases/\
+        download/v${version}/node_exporter-${version}.darwin-arm64.tar.gz"
+      is_archive: true
+    start_cmd: >-
+      ${USER_BIN_PATH}/node_exporter
+
+  - name: "Grafana"
+    port: 3000
+    version: "11.1.0"
+    logs_dir: ${GRAFANA_LOGS_PATH}
+    installer:
+      type: binary
+      install_path: ${GRAFANA_INSTALL_PATH}
+      executables:
+        grafana: grafana-v${version}/bin/grafana
+        grafana-server: grafana-v${version}/bin/grafana-server
+        grafana-cli: grafana-v${version}/bin/grafana-cli
+      download_url: https://dl.grafana.com/oss/release/grafana-${version}.darwin-arm64.tar.gz
+      is_archive: true
+    config:
+      - src: ./config/grafana.ini
+        dest: ${GRAFANA_CFG_PATH}
+    start_cmd: >-
+      ${USER_BIN_PATH}/grafana server
+      --config ${GRAFANA_CFG_PATH}
+      --homepath ${GRAFANA_INSTALL_PATH}/grafana-v${version}
+
+  - name: "Postgres"
+    port: 5432
+    version: "16"
+    logs_dir: ${POSTGRES_LOGS_PATH}
+    installer:
+      type: brew
+      install_path: ${POSTGRES_INSTALL_PATH}
+      executables:
+        pg_ctl: bin/pg_ctl
+        pg_dump: bin/pg_dump
+        pg_dumpall: bin/pg_dumpall
+        postgres: bin/postgres
+        initdb: bin/initdb
+        psql: bin/psql
+      package_name: postgresql@${version}
+      post_install_cmd: sh ./config/postgres-initdb.sh
+    start_cmd: >-
+      ${USER_BIN_PATH}/pg_ctl
+      -D ${POSTGRES_DB_PATH}/postgres@${POSTGRES_VERSION}
+      start

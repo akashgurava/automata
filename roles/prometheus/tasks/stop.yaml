@@ -1,7 +1,0 @@
-- name: Stop service
-  ansible.builtin.include_role:
-    name: prom
-    tasks_from: stop.yaml
-  vars:
-    prom_service_name: prometheus
-    prom_executable_name: prometheus

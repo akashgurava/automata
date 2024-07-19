@@ -1,7 +1,0 @@
-grafana_version: "11.1.0"
-grafana_port: 3000
-
-grafana_home_dir: "{{ prom_bin_dir }}/grafana-v{{ grafana_version }}"
-grafana_logs_dir: "{{ ansible_env.GRAFANA_DATA_PATH }}/logs"
-
-grafana_cfg_file: "{{ user_cfg_dir }}/grafana.ini"

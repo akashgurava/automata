@@ -1,1 +1,4 @@
 .env
+pgsql
+__pycache__
+logs
