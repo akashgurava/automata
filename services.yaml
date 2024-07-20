@@ -1,10 +1,11 @@
 bin_path: ${USER_BIN_PATH}
 cfg_path: ${USER_CFG_PATH}
 services:
-  - name: "Prometheus"
+  - name: "prometheus"
     port: 9090
     version: "2.53.1"
     logs_dir: ${PROMETHEUS_LOGS_PATH}
+    depends_on: ["node_exporter"]
     installer:
       type: binary
       install_path: ${PROMETHEUS_INSTALL_PATH}
@@ -23,7 +24,7 @@ services:
       --log.level=info
       --log.format=logfmt
 
-  - name: "Node Exporter"
+  - name: "node_exporter"
     port: 9100
     version: "1.8.2"
     logs_dir: ${NODE_EXPORTER_LOGS_PATH}
@@ -38,10 +39,11 @@ services:
     start_cmd: >-
       ${USER_BIN_PATH}/node_exporter
 
-  - name: "Grafana"
+  - name: "grafana"
     port: 3000
     version: "11.1.0"
     logs_dir: ${GRAFANA_LOGS_PATH}
+    depends_on: ["prometheus"]
     installer:
       type: binary
       install_path: ${GRAFANA_INSTALL_PATH}
@@ -59,7 +61,7 @@ services:
       --config ${GRAFANA_CFG_PATH}
       --homepath ${GRAFANA_INSTALL_PATH}/grafana-v${version}
 
-  - name: "Postgres"
+  - name: "postgres"
     port: 5432
     version: "16"
     logs_dir: ${POSTGRES_LOGS_PATH}

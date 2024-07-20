@@ -1,6 +1,6 @@
 # automata/service_manager.py
 
-from typing import List, Set
+from loguru import logger
 import yaml
 from automata.service import Service, Config, resolve_variables
 from automata.install import BinaryInstaller, BrewInstaller
@@ -9,7 +9,7 @@ from automata.install import BinaryInstaller, BrewInstaller
 class ServiceManager:
     def __init__(self, yaml_file_path: str):
         self.yaml_file_path = yaml_file_path
-        self.services: List[Service] = []
+        self.services: list[Service] = []
         self._load_services()
         self._validate_dependencies()
 
@@ -97,52 +97,262 @@ class ServiceManager:
                 return service
         raise ValueError(f"Service '{name}' not found")
 
-    def start_service_with_dependencies(
-        self, service_name: str, started_services: Set[str]
-    ):
-        service = self.get_service(service_name)
-        if service.name in started_services:
-            return
+    def _log_operation_order(self, operation: str, order: list[list[str]] | list[str]):
+        if isinstance(order[0], list):
+            # For start order
+            formatted_order = " -> ".join(
+                ["[" + ", ".join(group) + "]" for group in order]
+            )
+        else:
+            # For stop order
+            formatted_order: str = " -> ".join(order)  # type: ignore
+        logger.info(f"{operation.capitalize()} order: {formatted_order}")
 
-        for dependency in service.depends_on:
-            self.start_service_with_dependencies(dependency, started_services)
-
-        service.start_service()
-        started_services.add(service.name)
-
-    def start_all_services(self):
+    def _get_start_order(self) -> list[list[str]]:
+        order: list[list[str]] = []
         started_services: set[str] = set()
-        for service in self.services:
-            self.start_service_with_dependencies(service.name, started_services)
+        no_deps_services: list[str] = []
 
-    def start_specific_services(self, service_names: List[str]):
+        def add_service(service: Service):
+            if service.name in started_services:
+                return
+
+            # If the service has no dependencies, add it to no_deps_services
+            if not service.depends_on:
+                if service.name not in no_deps_services:
+                    no_deps_services.append(service.name)
+                return
+
+            # Add dependencies first
+            for dep in service.depends_on:
+                if dep not in started_services:
+                    add_service(self.get_service(dep))
+
+            # Add the service itself if not already added
+            if service.name not in started_services:
+                order.append([service.name])
+                started_services.add(service.name)
+
+        # First, process services with dependencies
+        for service in self.services:
+            add_service(service)
+
+        # Then, add services with no dependencies at the beginning
+        if no_deps_services:
+            order.insert(0, no_deps_services)
+            started_services.update(no_deps_services)
+        return order
+
+    def _get_start_order_for_specific(
+        self, specific_services: list[Service]
+    ) -> list[list[str]]:
+        order: list[list[str]] = []
         started_services: set[str] = set()
-        for name in service_names:
-            self.start_service_with_dependencies(name, started_services)
+        no_deps_services: list[str] = []
 
-    def stop_all_services(self):
+        def add_service(service: Service):
+            if service.name in started_services:
+                return
+
+            # Add dependencies first
+            for dep in service.depends_on:
+                dep_service = self.get_service(dep)
+                if dep_service.name not in started_services:
+                    add_service(dep_service)
+
+            # Add the service itself if not already added
+            if service.name not in started_services:
+                if service.depends_on:
+                    order.append([service.name])
+                else:
+                    no_deps_services.append(service.name)
+                started_services.add(service.name)
+
+        service_names_set = {service.name for service in specific_services}
+        for service in specific_services:
+            service_names_set.update(service.depends_on)
+
+        # First, process services with dependencies
+        for service_name in service_names_set:
+            service = self.get_service(service_name)
+            add_service(service)
+
+        # Then, add services with no dependencies at the beginning
+        if no_deps_services:
+            order.insert(0, no_deps_services)
+        return order
+
+    def _get_stop_order(self) -> list[list[str]]:
+        order: list[list[str]] = []
+        stopped_services: set[str] = set()
+        dependents_map: dict[str, set[str]] = {
+            service.name: set() for service in self.services
+        }
+
+        # Create a map of each service to its dependents
         for service in self.services:
-            service.stop_service()
+            for dep in service.depends_on:
+                dependents_map[dep].add(service.name)
 
-    def stop_specific_services(self, service_names: List[str]):
-        for name in service_names:
-            service = self.get_service(name)
-            service.stop_service()
+        def add_service(service: Service):
+            if service.name in stopped_services:
+                return
+
+            # Collect all services that depend on the current service
+            dependents = dependents_map[service.name]
+            if dependents:
+                for dependent in dependents:
+                    if dependent not in stopped_services:
+                        add_service(self.get_service(dependent))
+
+            # Add the service itself if not already added
+            if service.name not in stopped_services:
+                if order and not dependents:
+                    order[-1].append(service.name)
+                else:
+                    order.append([service.name])
+                stopped_services.add(service.name)
+
+        # Process all services
+        for service in self.services:
+            add_service(service)
+
+        return order
+
+    def _get_stop_order_for_specific(
+        self, specific_services: list[Service]
+    ) -> list[list[str]]:
+        order: list[list[str]] = []
+        stopped_services: set[str] = set()
+        dependents_map: dict[str, set[str]] = {
+            service.name: set() for service in self.services
+        }
+
+        # Create a map of each service to its dependents
+        for service in self.services:
+            for dep in service.depends_on:
+                dependents_map[dep].add(service.name)
+
+        def add_service(service: Service):
+            if service.name in stopped_services:
+                return
+
+            # Collect all services that depend on the current service
+            dependents = dependents_map.get(service.name, set())
+            for dependent in dependents:
+                dep_service = self.get_service(dependent)
+                if dep_service.name not in stopped_services:
+                    add_service(dep_service)
+
+            # Add the service itself if not already added
+            if service.name not in stopped_services:
+                if dependents:
+                    order.append([service.name])
+                else:
+                    if order and not dependents:
+                        order[-1].append(service.name)
+                    else:
+                        order.append([service.name])
+                stopped_services.add(service.name)
+
+        # Process all services
+        for service in specific_services:
+            add_service(service)
+
+        return order
 
     def install_all_services(self):
-        for service in self.services:
-            service.install()
+        order = self._get_start_order()
+        logger.info("Planning to install all services")
+        self._log_operation_order("planned install", order)
 
-    def install_specific_services(self, service_names: List[str]):
-        for name in service_names:
-            service = self.get_service(name)
-            service.install()
+        logger.info("Executing planned install order")
+        for group in order:
+            for service_name in group:
+                logger.info(f"Installing service: {service_name}")
+                service = self.get_service(service_name)
+                service.installer.install()
+
+    def install_specific_services(self, service_names: list[str]):
+        logger.info("Planning to install specific services")
+        specific_services = [self.get_service(name) for name in service_names]
+        specific_services_order = self._get_start_order_for_specific(specific_services)
+        self._log_operation_order("planned specific install", specific_services_order)
+
+        logger.info("Executing planned specific install order")
+        for group in specific_services_order:
+            for service_name in group:
+                logger.info(f"Installing service: {service_name}")
+                service = self.get_service(service_name)
+                service.installer.install()
+
+    def start_all_services(self):
+        order = self._get_start_order()
+        logger.info("Planning to start all services")
+        self._log_operation_order("planned start", order)
+
+        logger.info("Executing planned start order")
+        for group in order:
+            for service_name in group:
+                logger.info(f"Starting service: {service_name}")
+                self.get_service(service_name).start_service()
+
+    def start_specific_services(self, service_names: list[str]):
+        logger.info("Planning to start specific services")
+        specific_services = [self.get_service(name) for name in service_names]
+        specific_services_order = self._get_start_order_for_specific(specific_services)
+        self._log_operation_order("planned specific start", specific_services_order)
+
+        logger.info("Executing planned specific start order")
+        for group in specific_services_order:
+            for service_name in group:
+                logger.info(f"Starting service: {service_name}")
+                self.get_service(service_name).start_service()
+
+    def stop_all_services(self):
+        order = self._get_stop_order()
+        logger.info("Planning to stop all services")
+        self._log_operation_order("planned stop", order)
+
+        logger.info("Executing planned start order")
+        for group in order:
+            for service_name in group:
+                logger.info(f"Stopping service: {service_name}")
+                self.get_service(service_name).stop_service()
+
+    def stop_specific_services(self, service_names: list[str]):
+        logger.info("Planning to stop specific services")
+        specific_services = [self.get_service(name) for name in service_names]
+        specific_services_order = self._get_stop_order_for_specific(specific_services)
+        self._log_operation_order("planned specific stop", specific_services_order)
+
+        logger.info("Executing planned specific stop order")
+        for group in specific_services_order:
+            for service_name in group:
+                logger.info(f"Stopping service: {service_name}")
+                self.get_service(service_name).stop_service()
 
     def uninstall_all_services(self):
-        for service in self.services:
-            service.uninstall()
+        order = self._get_stop_order()
+        logger.info("Planning to uninstall all services")
+        self._log_operation_order("planned uninstall", order)
 
-    def uninstall_specific_services(self, service_names: List[str]):
-        for name in service_names:
-            service = self.get_service(name)
-            service.uninstall()
+        logger.info("Executing planned uninstall order")
+        for group in order:
+            for service_name in group:
+                logger.info(f"Uninstalling service: {service_name}")
+                service = self.get_service(service_name)
+                service.installer.uninstall()
+
+    def uninstall_specific_services(self, service_names: list[str]):
+        logger.info("Planning to uninstall specific services")
+        specific_services = [self.get_service(name) for name in service_names]
+        specific_services_order = self._get_stop_order_for_specific(specific_services)
+        self._log_operation_order("planned specific uninstall", specific_services_order)
+
+        logger.info("Executing planned specific uninstall order")
+        for group in specific_services_order:
+            for service_name in group:
+                logger.info(f"Uninstalling service: {service_name}")
+                service = self.get_service(service_name)
+                service.installer.uninstall()
