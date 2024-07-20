@@ -390,3 +390,45 @@ class BrewInstaller(Installer):
             self.service_name, "brew_remove", f"brew remove {self.package_name} || true"
         )
         return super().uninstall()
+
+
+class BinInstaller(Installer):
+    """
+    BinInstaller copies the contents of a source directory to the install path and creates symlinks for executables.
+    """
+
+    def __init__(
+        self,
+        service_name: str,
+        source_path: str,
+        install_path: str,
+        bin_path: str,
+        executables: dict[str, str],
+    ):
+        super().__init__(service_name, install_path, bin_path, executables)
+        self._source_path = os.path.expandvars(source_path)
+
+    def __repr__(self):
+        return (
+            f"BinInstaller(service_name={self._service_name}, "
+            f"source_path={self._source_path}, install_path={self._install_path}, "
+            f"bin_path={self._bin_path}, executables={self._executables})"
+        )
+
+    def install(self):
+        """
+        Copies the contents of the source directory to the install path and creates symlinks for the executables.
+        """
+        ensure_dir_exists(self._install_path)
+
+        # Copy contents from source_path to install_path
+        for item in os.listdir(self._source_path):
+            s = os.path.join(self._source_path, item)
+            d = os.path.join(self._install_path, item)
+            if os.path.isdir(s):
+                shutil.copytree(s, d, dirs_exist_ok=True)
+            else:
+                shutil.copy2(s, d)
+
+        self._create_symlinks()
+        self.post_install()

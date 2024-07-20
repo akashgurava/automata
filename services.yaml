@@ -5,7 +5,7 @@ services:
     port: 9090
     version: "2.53.1"
     logs_dir: ${PROMETHEUS_LOGS_PATH}
-    depends_on: ["node_exporter"]
+    depends_on: ["node_exporter", "simon"]
     installer:
       type: binary
       install_path: ${PROMETHEUS_INSTALL_PATH}
@@ -81,3 +81,17 @@ services:
       ${USER_BIN_PATH}/pg_ctl
       -D ${POSTGRES_DB_PATH}/${POSTGRES_DB_INIT_NAME}
       start
+
+  - name: "simon"
+    port: 9184
+    version: "1"
+    logs_dir: ${SIMON_LOGS_PATH}
+    installer:
+      type: local_bin
+      install_path: ${SIMON_INSTALL_PATH}
+      source_path: ./bin/simon
+      executables:
+        simon: simon
+      post_install_cmd: sh ./config/simon-init.sh
+    start_cmd: >-
+      ${USER_BIN_PATH}/simon

@@ -3,7 +3,7 @@
 from loguru import logger
 import yaml
 from automata.service import Service, Config, resolve_variables
-from automata.install import BinaryInstaller, BrewInstaller
+from automata.install import BinaryInstaller, BrewInstaller, BinInstaller
 
 
 class ServiceManager:
@@ -46,6 +46,14 @@ class ServiceManager:
                     executables=installer_data["executables"],
                     package_name=installer_data["package_name"],
                     post_install_cmd=installer_data.get("post_install_cmd"),
+                )
+            elif installer_data["type"] == "local_bin":
+                installer = BinInstaller(
+                    service_name=name,
+                    source_path=installer_data["source_path"],
+                    install_path=installer_data["install_path"],
+                    bin_path=bin_path,
+                    executables=installer_data["executables"],
                 )
             else:
                 raise ValueError(f"Invalid installer type: {installer_data['type']}")
