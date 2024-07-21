@@ -28,6 +28,8 @@ class ServiceManager:
             depends_on = service_data.get("depends_on", [])
 
             installer_data = service_data["installer"]
+            if isinstance(port, int):
+                port = [port]
             if installer_data["type"] == "binary":
                 installer = BinaryInstaller(
                     service_name=name,
@@ -350,7 +352,7 @@ class ServiceManager:
             for service_name in group:
                 logger.info(f"Uninstalling service: {service_name}")
                 service = self.get_service(service_name)
-                service.installer.uninstall()
+                service.uninstall()
 
     def uninstall_specific_services(self, service_names: list[str]):
         logger.info("Planning to uninstall specific services")
@@ -363,4 +365,30 @@ class ServiceManager:
             for service_name in group:
                 logger.info(f"Uninstalling service: {service_name}")
                 service = self.get_service(service_name)
-                service.installer.uninstall()
+                service.uninstall()
+
+    def install_specific_services_no_deps(self, service_names: list[str]):
+        logger.info("Planning to install specific services without dependencies")
+        for service_name in service_names:
+            logger.info(f"Installing service: {service_name}")
+            service = self.get_service(service_name)
+            service.install()
+
+    def start_specific_services_no_deps(self, service_names: list[str]):
+        logger.info("Planning to start specific services without dependencies")
+        for service_name in service_names:
+            logger.info(f"Starting service: {service_name}")
+            self.get_service(service_name).start_service()
+
+    def stop_specific_services_no_deps(self, service_names: list[str]):
+        logger.info("Planning to stop specific services without dependencies")
+        for service_name in service_names:
+            logger.info(f"Stopping service: {service_name}")
+            self.get_service(service_name).stop_service()
+
+    def uninstall_specific_services_no_deps(self, service_names: list[str]):
+        logger.info("Planning to uninstall specific services without dependencies")
+        for service_name in service_names:
+            logger.info(f"Uninstalling service: {service_name}")
+            service = self.get_service(service_name)
+            service.uninstall()

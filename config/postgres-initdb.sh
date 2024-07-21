@@ -86,7 +86,7 @@ log_message "Database initialization completed."
 # Start the PostgreSQL server and log the output
 log_message "Starting PostgreSQL server."
 mkdir -p ${POSTGRES_LOGS_PATH}
-${USER_BIN_PATH}/pg_ctl -D ${POSTGRES_DB_INIT_PATH} -l ${POSTGRES_LOGS_PATH}/initdb-$(date +%Y%m%d%H%M%S).log start
+${USER_BIN_PATH}/pg_ctl -D ${POSTGRES_DB_INIT_PATH} start
 
 # Wait for PostgreSQL to start
 sleep 5

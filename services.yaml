@@ -95,3 +95,21 @@ services:
       post_install_cmd: sh ./config/simon-init.sh
     start_cmd: >-
       ${USER_BIN_PATH}/simon
+
+  - name: "blocky"
+    port: [53, 4000]
+    version: "0.24"
+    logs_dir: ${BLOCKY_LOGS_PATH}
+    depends_on: ["postgres"]
+    installer:
+      type: binary
+      install_path: ${BLOCKY_INSTALL_PATH}
+      executables:
+        blocky: blocky
+      download_url: "https://github.com/0xERR0R/blocky/releases/download/v${version}/blocky_v${version}_Darwin_arm64.tar.gz"
+      is_archive: true
+    config:
+      - src: ./config/blocky.yaml
+        dest: ${BLOCKY_CFG_PATH}
+    start_cmd: >-
+      ${USER_BIN_PATH}/blocky --config ${BLOCKY_CFG_PATH}

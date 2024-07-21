@@ -1,0 +1,75 @@
+upstreams:
+  init:
+    strategy: fast
+  groups:
+    default:
+      - 9.9.9.9
+  strategy: strict
+  timeout: 2s
+
+bootstrapDns:
+  - upstream: https://9.9.9.9/dns-query
+
+blocking:
+  denylists:
+    ads:
+      - https://s3.amazonaws.com/lists.disconnect.me/simple_ad.txt
+      - https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts
+      - http://sysctl.org/cameleon/hosts
+      - https://s3.amazonaws.com/lists.disconnect.me/simple_tracking.txt
+    special:
+      - https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/fakenews/hosts
+  clientGroupsBlock:
+    default:
+      - ads
+      - special
+
+customDNS:
+  mapping:
+    blocky.lan: 192.168.1.3
+    certs.lan: 192.168.1.3
+    node-exporter.lan: 192.168.1.3
+    cadvisor.lan: 192.168.1.3
+    prometheus.lan: 192.168.1.3
+    grafana.lan: 192.168.1.3
+    qbit.lan: 192.168.1.3
+    sonarr.lan: 192.168.1.3
+    radarr.lan: 192.168.1.3
+    jellyfin.lan: 192.168.1.3
+
+clientLookup:
+  upstream: 192.168.1.1
+  clients:
+    asus:
+      - 192.168.1.2
+    macair:
+      - 192.168.1.3
+    macpro:
+      - 192.168.1.5
+    S23 Ultra:
+      - 192.168.1.4
+
+ports:
+  dns: 53
+  http: 4000
+
+caching:
+  minTime: 0s
+  maxTime: 0s
+  maxItemsCount: 0
+  cacheTimeNegative: "-1s"
+
+queryLog:
+  type: postgresql
+  target: postgres://blocky:g1WgSbL8L9Bk9R@localhost:5432/blocky
+  logRetentionDays: 30
+
+log:
+  level: info
+  format: text
+  timestamp: true
+  privacy: false
+
+prometheus:
+  enable: true
+  path: /metrics

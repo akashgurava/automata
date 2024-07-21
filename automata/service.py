@@ -114,7 +114,7 @@ class Service:
     def __init__(
         self,
         name: str,
-        port: int,
+        port: list[int],
         version: str,
         logs_dir: str,
         installer: Installer,
@@ -146,13 +146,14 @@ class Service:
         :param port: The port number of the service.
         :return: True if the service is open, False otherwise.
         """
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-            sock.settimeout(1)  # Set a timeout for the connection attempt
-            try:
-                sock.connect(("localhost", self.port))
-                return True
-            except (socket.timeout, ConnectionRefusedError):
-                return False
+        for port in self.port:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+                sock.settimeout(1)  # Set a timeout for the connection attempt
+                try:
+                    sock.connect(("localhost", port))
+                except (socket.timeout, ConnectionRefusedError):
+                    return False
+        return True
 
     def install(self):
         """Install the service."""
@@ -168,7 +169,7 @@ class Service:
             logger.info(f"Service: {self.name}. Service already running.")
             return
 
-        self.installer.install()
+        self.install()
 
         for config in self.configs:
             config.apply()
@@ -183,7 +184,12 @@ class Service:
                 f"Service: {self.name}. Command: {self.start_cmd}. Starting service."
             )
             process = subprocess.Popen(
-                self.start_cmd, shell=True, stdout=log, stderr=log
+                self.start_cmd,
+                shell=True,
+                stdout=log,
+                stderr=log,
+                # To load env from .env file
+                env=os.environ,
             )
             logger.info(
                 f"Service: {self.name}. PID {process.pid}. Log: {log_file}. Service triggered."
@@ -206,14 +212,17 @@ class Service:
         if not self.is_service_open():
             logger.info(f"Service: {self.name}. Service is not running.")
             return
+        pids: set[int] = set()
         for proc in process_iter():
             try:
                 for conns in proc.connections(kind="inet"):
-                    if conns.laddr.port == self.port:
-                        logger.info(f"Service: {self.name}. PID: {proc.pid}. Stopping.")
-                        proc.send_signal(SIGTERM)  # or SIGKILL
+                    if conns.laddr.port in self.port:
+                        pids.add(proc.pid)
             except:
                 pass
+        for pid in pids:
+            logger.info(f"Service: {self.name}. PID: {pid}. Stopping.")
+            os.kill(pid, SIGTERM)
 
     def uninstall(self):
         """Uninstall the service."""

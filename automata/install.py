@@ -29,7 +29,12 @@ def expandvars_recursive(path: str) -> str:
 def run_command_with_logs(service_name: str, command_type: str, command: str):
     """Run a command and write logs."""
     process = subprocess.Popen(
-        command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        command,
+        shell=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        # To load env from .env file
+        env=os.environ,
     )
     log_subprocess_output(process.stdout)  # type: ignore
     log_subprocess_output(process.stderr)  # type: ignore
