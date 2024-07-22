@@ -1,0 +1,60 @@
+{
+    # Global options
+    email akashgurava@outlook.com
+    
+    # Use internal CA for .lan domains
+    local_certs
+
+    servers :443 {
+		name https
+	}
+	
+	servers :80 {
+		name http
+        protocols h1 h2c
+	}
+
+    servers {
+		metrics
+	}
+
+    admin :2019
+}
+
+(internal_tls) {
+ tls internal {
+  # Add this line to skip OCSP stapling for internal certs
+  skip_ocsp
+ }
+}
+
+blocky.lan {
+    tls internal
+    reverse_proxy localhost:4000
+}
+
+prometheus.lan {
+    tls internal
+    reverse_proxy localhost:9090
+}
+
+grafana.lan {
+    tls internal
+    reverse_proxy localhost:3000
+}
+
+node-exporter.lan {
+    tls internal
+    reverse_proxy localhost:9100
+}
+
+simon.lan {
+    tls internal
+    reverse_proxy localhost:9184
+}
+
+certs.lan {
+    tls internal
+    root * "/Users/akash/config/caddy/caddy/pki/authorities/local/"
+    file_server browse
+}

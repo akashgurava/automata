@@ -36,6 +36,7 @@ customDNS:
     sonarr.lan: 192.168.1.3
     radarr.lan: 192.168.1.3
     jellyfin.lan: 192.168.1.3
+    simon.lan: 192.168.1.3
 
 clientLookup:
   upstream: 192.168.1.1
@@ -44,10 +45,10 @@ clientLookup:
       - 192.168.1.2
     macair:
       - 192.168.1.3
-    macpro:
-      - 192.168.1.5
     S23 Ultra:
       - 192.168.1.4
+    macpro:
+      - 192.168.1.5
 
 ports:
   dns: 53

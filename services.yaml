@@ -118,3 +118,21 @@ services:
         dest: ${BLOCKY_CFG_PATH}
     start_cmd: >-
       ${USER_BIN_PATH}/blocky --config ${BLOCKY_CFG_PATH}
+
+  - name: "caddy"
+    port: [2019]
+    version: "2.8.4"
+    logs_dir: ${CADDY_LOGS_PATH}
+    depends_on: ["blocky"]
+    installer:
+      type: binary
+      install_path: ${CADDY_INSTALL_PATH}
+      executables:
+        caddy: caddy
+      download_url: "https://github.com/caddyserver/caddy/releases/download/v${version}/caddy_${version}_mac_arm64.tar.gz"
+      is_archive: true
+    config:
+      - src: ./config/Caddyfile
+        dest: ${CADDY_CFG_PATH}
+    start_cmd: >-
+      ${USER_BIN_PATH}/caddy run --config ${CADDY_CFG_PATH}
