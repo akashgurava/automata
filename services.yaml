@@ -23,6 +23,7 @@ services:
       --storage.tsdb.path=${PROMETHEUS_DB_PATH}
       --log.level=info
       --log.format=logfmt
+      --web.enable-admin-api
 
   - name: "node_exporter"
     port: 9100
@@ -81,6 +82,10 @@ services:
       ${USER_BIN_PATH}/pg_ctl
       -D ${POSTGRES_DB_PATH}/${POSTGRES_DB_INIT_NAME}
       start
+    stop_cmd: >-
+      ${USER_BIN_PATH}/pg_ctl
+      -D ${POSTGRES_DB_PATH}/${POSTGRES_DB_INIT_NAME}
+      stop
 
   - name: "simon"
     port: 9184

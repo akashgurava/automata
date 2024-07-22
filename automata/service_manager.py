@@ -25,6 +25,7 @@ class ServiceManager:
             version = service_data["version"]
             logs_dir = service_data["logs_dir"]
             start_cmd = service_data["start_cmd"]
+            stop_cmd = service_data.get("stop_cmd")
             depends_on = service_data.get("depends_on", [])
 
             installer_data = service_data["installer"]
@@ -70,10 +71,11 @@ class ServiceManager:
                 port=port,
                 version=version,
                 logs_dir=logs_dir,
+                depends_on=depends_on,
                 installer=installer,
                 configs=configs,
                 start_cmd=start_cmd,
-                depends_on=depends_on,
+                stop_cmd=stop_cmd,
             )
             self.services.append(service)
 

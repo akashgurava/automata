@@ -117,19 +117,21 @@ class Service:
         port: list[int],
         version: str,
         logs_dir: str,
+        depends_on: List[str],
         installer: Installer,
         configs: List[Config],
         start_cmd: str,
-        depends_on: List[str],
+        stop_cmd: str | None = None,
     ):
         self.name = name
         self.port = port
         self.version = version
         self.logs_dir = logs_dir
+        self.depends_on = depends_on
         self.installer = installer
         self.configs = configs
         self.start_cmd = start_cmd
-        self.depends_on = depends_on
+        self.stop_cmd = stop_cmd
 
     def __repr__(self):
         return (
@@ -159,6 +161,24 @@ class Service:
         """Install the service."""
         self.installer.install()
 
+    def _run_cmd(self, cmd: str, cmd_type: str):
+        ensure_dir_exists(self.logs_dir)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        log_file = os.path.join(
+            self.logs_dir, f"{self.name}_{cmd_type}_{timestamp}.log"
+        )
+        with open(log_file, "wb") as log:
+            logger.info(f"Service: {self.name}. Command: {cmd}. Starting service.")
+            process = subprocess.Popen(
+                cmd,
+                shell=True,
+                stdout=log,
+                stderr=log,
+                # To load env from .env file
+                env=os.environ,
+            )
+        return process, log_file
+
     def start_service(self):
         """
         Start the service. If the service is not already running, check if it's installed,
@@ -174,26 +194,10 @@ class Service:
         for config in self.configs:
             config.apply()
 
-        ensure_dir_exists(self.logs_dir)
-
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        log_file = os.path.join(self.logs_dir, f"{self.name}_{timestamp}.log")
-
-        with open(log_file, "wb") as log:
-            logger.info(
-                f"Service: {self.name}. Command: {self.start_cmd}. Starting service."
-            )
-            process = subprocess.Popen(
-                self.start_cmd,
-                shell=True,
-                stdout=log,
-                stderr=log,
-                # To load env from .env file
-                env=os.environ,
-            )
-            logger.info(
-                f"Service: {self.name}. PID {process.pid}. Log: {log_file}. Service triggered."
-            )
+        process, log_file = self._run_cmd(self.start_cmd, "start_process")
+        logger.info(
+            f"Service: {self.name}. PID {process.pid}. Log: {log_file}. Service start command triggered."
+        )
 
         # Ensure the service is running
         for _ in range(5):
@@ -212,17 +216,36 @@ class Service:
         if not self.is_service_open():
             logger.info(f"Service: {self.name}. Service is not running.")
             return
-        pids: set[int] = set()
-        for proc in process_iter():
-            try:
-                for conns in proc.connections(kind="inet"):
-                    if conns.laddr.port in self.port:
-                        pids.add(proc.pid)
-            except:
-                pass
-        for pid in pids:
-            logger.info(f"Service: {self.name}. PID: {pid}. Stopping.")
-            os.kill(pid, SIGTERM)
+        if self.stop_cmd:
+            logger.info(
+                f"Service: {self.name}. Stop Cmd: {self.stop_cmd}. Stopping service."
+            )
+            process, log_file = self._run_cmd(self.stop_cmd, "stop_process")
+            logger.info(
+                f"Service: {self.name}. PID {process.pid}. Log: {log_file}. Service stop command triggered."
+            )
+        else:
+            logger.info(f"Service: {self.name}. Stopping using PIDs on port.")
+            pids: set[int] = set()
+            for proc in process_iter():
+                try:
+                    for conns in proc.connections(kind="inet"):
+                        if conns.laddr.port in self.port:
+                            pids.add(proc.pid)
+                except:
+                    pass
+            for pid in pids:
+                logger.info(f"Service: {self.name}. PID: {pid}. Stopping.")
+                os.kill(pid, SIGTERM)
+
+        # Ensure the service is stopped
+        for _ in range(5):
+            if self.is_service_open():
+                logger.warning(f"Service: {self.name}. Service still running.")
+            else:
+                logger.info(f"Service: {self.name}. Service stopped.")
+                return
+            sleep(3)
 
     def uninstall(self):
         """Uninstall the service."""
