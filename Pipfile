@@ -8,6 +8,7 @@ pyyaml = "*"
 python-dotenv = "*"
 psutil = "*"
 loguru = "*"
+dmglib = "*"
 
 [dev-packages]
 black = "*"

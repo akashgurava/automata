@@ -12,6 +12,12 @@ import urllib.request
 import tarfile
 import zipfile
 from typing import Optional
+
+from dmglib import (  # type: ignore
+    DiskImage,
+    dmg_detach_already_attached,
+    InvalidOperation,
+)
 from loguru import logger
 
 from automata.utils import ensure_dir_exists, log_subprocess_output, log_filename
@@ -43,6 +49,31 @@ def run_command_with_logs(service_name: str, command_type: str, command: str):
         raise ValueError(
             f"Service: {service_name}. Command Type: {command_type}. Command: {command}. Log: {log_filename}. Failed check logs."
         )
+
+
+def extract_dmg(service_name: str, src: str, extract_to: str):
+    try:
+        dmg_detach_already_attached(src, force=True)
+    except InvalidOperation:
+        pass
+
+    dmg = DiskImage(src)
+    try:
+        points: list[str] = dmg.attach(f"/Volumes/{service_name}")  # type: ignore
+        dmg_contents = os.listdir(points[0])
+        content: str | None = None
+        for content in dmg_contents:
+            if content.endswith(".app"):
+                break
+
+        if content:
+            shutil.copytree(
+                f"/Volumes/{service_name}/{content}",
+                f"{extract_to}/{content}",
+                dirs_exist_ok=True,
+            )
+    finally:
+        dmg.detach()
 
 
 class Installer:
@@ -289,7 +320,9 @@ class BinaryInstaller(Installer):
         logger.info(
             f"Service: {self.service_name}. Archive Path: {archive_path}. Destination: {extract_to}. Extracting."
         )
-        if tarfile.is_tarfile(archive_path):
+        if archive_path.endswith("dmg"):
+            extract_dmg(self.service_name, archive_path, extract_to=extract_to)
+        elif tarfile.is_tarfile(archive_path):
             with tarfile.open(archive_path, "r") as tar:
                 tar.extractall(path=extract_to)
         elif zipfile.is_zipfile(archive_path):

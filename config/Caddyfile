@@ -18,6 +18,12 @@
 		metrics
 	}
 
+    log default {
+		output stdout
+		format json
+		include http.log.access admin.api
+	}
+
     admin :2019
 }
 
@@ -31,26 +37,37 @@
 blocky.lan {
     tls internal
     reverse_proxy localhost:4000
+    log
 }
 
 prometheus.lan {
     tls internal
     reverse_proxy localhost:9090
+    log
 }
 
 grafana.lan {
     tls internal
     reverse_proxy localhost:3000
+    log
 }
 
 node-exporter.lan {
     tls internal
     reverse_proxy localhost:9100
+    log
 }
 
 simon.lan {
     tls internal
     reverse_proxy localhost:9184
+    log
+}
+
+jellyfin.lan {
+    tls internal
+    reverse_proxy localhost:8096
+    log
 }
 
 certs.lan {
@@ -58,3 +75,5 @@ certs.lan {
     root * "/Users/akash/config/caddy/caddy/pki/authorities/local/"
     file_server browse
 }
+
+// 6113.

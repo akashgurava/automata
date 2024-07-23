@@ -136,3 +136,17 @@ services:
         dest: ${CADDY_CFG_PATH}
     start_cmd: >-
       ${USER_BIN_PATH}/caddy run --config ${CADDY_CFG_PATH}
+
+  - name: "jellyfin"
+    port: [8096]
+    version: "10.9.8"
+    logs_dir: ${JELLYFIN_LOGS_PATH}
+    installer:
+      type: binary
+      install_path: ${JELLYFIN_INSTALL_PATH}
+      executables:
+        jellyfin: Jellyfin.app/Contents/MacOS/jellyfin
+      download_url: "https://blr1.mirror.jellyfin.org/files/server/macos/stable/v${version}/arm64/jellyfin_${version}-arm64.dmg"
+      is_archive: true
+    start_cmd: >-
+      ${USER_BIN_PATH}/jellyfin -w ${JELLYFIN_WEB_DIR}
