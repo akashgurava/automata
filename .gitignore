@@ -1,5 +1,7 @@
 .env
 pgsql
-__pycache__
 logs
 .DS_STORE
+# Added by cargo
+
+/target
