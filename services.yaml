@@ -1,152 +1,141 @@
 bin_path: ${USER_BIN_PATH}
 cfg_path: ${USER_CFG_PATH}
+groups:
+  monitor:
+    - name: "simon"
+      port: 9184
+      version: "1"
+      logs_dir: ${SIMON_LOGS_PATH}
+      installer:
+        type: local_bin
+        install_path: ${SIMON_INSTALL_PATH}
+        source_path: ./bin/simon
+        executables:
+          simon: simon
+        post_install_cmd: sh ./config/simon-init.sh
+      start_cmd: >-
+        ${USER_BIN_PATH}/simon
+
+    - name: "grafana"
+      port: 3000
+      version: "11.1.3"
+      logs_dir: ${GRAFANA_LOGS_PATH}
+      depends_on: ["prometheus"]
+      installer:
+        type: binary
+        install_path: ${GRAFANA_INSTALL_PATH}
+        executables:
+          grafana: grafana-v${version}/bin/grafana
+          grafana-server: grafana-v${version}/bin/grafana-server
+          grafana-cli: grafana-v${version}/bin/grafana-cli
+        download_url: https://dl.grafana.com/oss/release/grafana-${version}.darwin-arm64.tar.gz
+        is_archive: true
+      config:
+        - src: ./config/grafana.ini
+          dest: ${GRAFANA_CFG_PATH}
+      start_cmd: >-
+        ${USER_BIN_PATH}/grafana server
+        --config ${GRAFANA_CFG_PATH}
+        --homepath ${GRAFANA_INSTALL_PATH}/grafana-v${version}
+  db:
+    - name: "prometheus"
+      port: 9090
+      version: "2.54.0"
+      logs_dir: ${PROMETHEUS_LOGS_PATH}
+      depends_on: ["simon"]
+      installer:
+        type: binary
+        install_path: ${PROMETHEUS_INSTALL_PATH}
+        executables:
+          prometheus: prometheus-${version}.darwin-arm64/prometheus
+          promtool: prometheus-${version}.darwin-arm64/promtool
+        download_url: https://github.com/prometheus/prometheus/releases/download/v${version}/prometheus-${version}.darwin-arm64.tar.gz
+        is_archive: true
+      config:
+        - src: ./config/prometheus.yaml
+          dest: ${PROMETHEUS_CFG_PATH}
+      start_cmd: >-
+        ${USER_BIN_PATH}/prometheus
+        --config.file=${PROMETHEUS_CFG_PATH}
+        --storage.tsdb.path=${PROMETHEUS_DB_PATH}
+        --log.level=info
+        --log.format=logfmt
+        --web.enable-admin-api
+  media:
+    - name: "transmission"
+      port: 6767
+      version: "4.0.6"
+      logs_dir: ${TRANSMISSION_LOGS_PATH}
+      installer:
+        type: brew
+        install_path: ${HOMEBREW_PREFIX}/opt/transmission-cli
+        package_name: "transmission-cli"
+        executables:
+          transmission-daemon: bin/transmission-daemon
+      start_cmd: >-
+        ${USER_BIN_PATH}/transmission-daemon
+        --port ${port} --config-dir ${TRANSMISSION_CFG_PATH}
+        --download-dir ${TRANSMISSION_DOWNLOAD_PATH}
+        --auth --username ${TRANSMISSION_USER} --password ${TRANSMISSION_PASSWORD}
+
+    - name: "prowlarr"
+      port: 9696
+      version: "1.21.2.4649"
+      logs_dir: ${PROWLARR_LOGS_PATH}
+      depends_on: ["transmission"]
+      installer:
+        type: binary
+        install_path: ${PROWLARR_INSTALL_PATH}
+        executables:
+          Prowlarr: Prowlarr/Prowlarr
+        download_url: https://github.com/Prowlarr/Prowlarr/releases/download/v${version}/Prowlarr.master.${version}.osx-core-arm64.tar.gz
+        is_archive: true
+        post_install_cmd: "codesign --force --deep -s - ${PROWLARR_INSTALL_PATH}/Prowlarr && xattr -rd com.apple.quarantine ${PROWLARR_INSTALL_PATH}/Prowlarr"
+      start_cmd: >-
+        ${USER_BIN_PATH}/Prowlarr -data="${PROWLARR_CFG_PATH}" -nobrowser
+
+    - name: "sonarr"
+      port: 8989
+      version: "4.0.8.1874"
+      logs_dir: ${SONARR_LOGS_PATH}
+      depends_on: ["prowlarr"]
+      installer:
+        type: binary
+        install_path: ${SONARR_INSTALL_PATH}
+        executables:
+          Sonarr: Sonarr/Sonarr
+        download_url: https://github.com/Sonarr/Sonarr/releases/download/v${version}/Sonarr.main.${version}.osx-arm64.tar.gz
+        is_archive: true
+        post_install_cmd: "codesign --force --deep -s - ${SONARR_INSTALL_PATH}/Sonarr && xattr -rd com.apple.quarantine ${SONARR_INSTALL_PATH}/Sonarr"
+      start_cmd: >-
+        ${USER_BIN_PATH}/Sonarr -data="${SONARR_CFG_PATH}" -nobrowser
+
+    - name: "radarr"
+      port: 7878
+      version: "5.8.3.8933"
+      logs_dir: ${RADARR_LOGS_PATH}
+      depends_on: ["prowlarr"]
+      installer:
+        type: binary
+        install_path: ${RADARR_INSTALL_PATH}
+        executables:
+          Radarr: Radarr/Radarr
+        download_url: https://github.com/Radarr/Radarr/releases/download/v${version}/Radarr.master.${version}.osx-core-arm64.tar.gz
+        is_archive: true
+        post_install_cmd: "codesign --force --deep -s - ${RADARR_INSTALL_PATH}/Radarr && xattr -rd com.apple.quarantine ${RADARR_INSTALL_PATH}/Radarr"
+      start_cmd: >-
+        ${USER_BIN_PATH}/Radarr -data="${RADARR_CFG_PATH}" -nobrowser
 services:
-  - name: "prometheus"
-    port: 9090
-    version: "2.53.1"
-    logs_dir: ${PROMETHEUS_LOGS_PATH}
-    depends_on: ["node_exporter", "simon"]
-    installer:
-      type: binary
-      install_path: ${PROMETHEUS_INSTALL_PATH}
-      executables:
-        prometheus: prometheus-${version}.darwin-arm64/prometheus
-        promtool: prometheus-${version}.darwin-arm64/promtool
-      download_url: https://github.com/prometheus/prometheus/releases/download/v${version}/prometheus-${version}.darwin-arm64.tar.gz
-      is_archive: true
-    config:
-      - src: ./config/prometheus.yaml
-        dest: ${PROMETHEUS_CFG_PATH}
-    start_cmd: >-
-      ${USER_BIN_PATH}/prometheus
-      --config.file=${PROMETHEUS_CFG_PATH}
-      --storage.tsdb.path=${PROMETHEUS_DB_PATH}
-      --log.level=info
-      --log.format=logfmt
-      --web.enable-admin-api
-
-  - name: "node_exporter"
-    port: 9100
-    version: "1.8.2"
-    logs_dir: ${NODE_EXPORTER_LOGS_PATH}
-    installer:
-      type: binary
-      install_path: ${NODE_EXPORTER_INSTALL_PATH}
-      executables:
-        node_exporter: node_exporter-${version}.darwin-arm64/node_exporter
-      download_url: "https://github.com/prometheus/node_exporter/releases/\
-        download/v${version}/node_exporter-${version}.darwin-arm64.tar.gz"
-      is_archive: true
-    start_cmd: >-
-      ${USER_BIN_PATH}/node_exporter
-
-  - name: "grafana"
-    port: 3000
-    version: "11.1.0"
-    logs_dir: ${GRAFANA_LOGS_PATH}
-    depends_on: ["prometheus"]
-    installer:
-      type: binary
-      install_path: ${GRAFANA_INSTALL_PATH}
-      executables:
-        grafana: grafana-v${version}/bin/grafana
-        grafana-server: grafana-v${version}/bin/grafana-server
-        grafana-cli: grafana-v${version}/bin/grafana-cli
-      download_url: https://dl.grafana.com/oss/release/grafana-${version}.darwin-arm64.tar.gz
-      is_archive: true
-    config:
-      - src: ./config/grafana.ini
-        dest: ${GRAFANA_CFG_PATH}
-    start_cmd: >-
-      ${USER_BIN_PATH}/grafana server
-      --config ${GRAFANA_CFG_PATH}
-      --homepath ${GRAFANA_INSTALL_PATH}/grafana-v${version}
-
-  - name: "postgres"
-    port: 5432
-    version: "16"
-    logs_dir: ${POSTGRES_LOGS_PATH}
-    installer:
-      type: brew
-      install_path: ${POSTGRES_INSTALL_PATH}
-      executables:
-        pg_ctl: bin/pg_ctl
-        pg_dump: bin/pg_dump
-        pg_dumpall: bin/pg_dumpall
-        postgres: bin/postgres
-        initdb: bin/initdb
-        psql: bin/psql
-      package_name: postgresql@${version}
-      post_install_cmd: sh ./config/postgres-initdb.sh
-    start_cmd: >-
-      ${USER_BIN_PATH}/pg_ctl
-      -D ${POSTGRES_DB_PATH}/${POSTGRES_DB_INIT_NAME}
-      start
-    stop_cmd: >-
-      ${USER_BIN_PATH}/pg_ctl
-      -D ${POSTGRES_DB_PATH}/${POSTGRES_DB_INIT_NAME}
-      stop
-
-  - name: "simon"
-    port: 9184
-    version: "1"
-    logs_dir: ${SIMON_LOGS_PATH}
-    installer:
-      type: local_bin
-      install_path: ${SIMON_INSTALL_PATH}
-      source_path: ./bin/simon
-      executables:
-        simon: simon
-      post_install_cmd: sh ./config/simon-init.sh
-    start_cmd: >-
-      ${USER_BIN_PATH}/simon
-
-  - name: "blocky"
-    port: [53, 4000]
-    version: "0.24"
-    logs_dir: ${BLOCKY_LOGS_PATH}
-    depends_on: ["postgres"]
-    installer:
-      type: binary
-      install_path: ${BLOCKY_INSTALL_PATH}
-      executables:
-        blocky: blocky
-      download_url: "https://github.com/0xERR0R/blocky/releases/download/v${version}/blocky_v${version}_Darwin_arm64.tar.gz"
-      is_archive: true
-    config:
-      - src: ./config/blocky.yaml
-        dest: ${BLOCKY_CFG_PATH}
-    start_cmd: >-
-      ${USER_BIN_PATH}/blocky --config ${BLOCKY_CFG_PATH}
-
-  - name: "caddy"
-    port: [2019]
-    version: "2.8.4"
-    logs_dir: ${CADDY_LOGS_PATH}
-    depends_on: ["blocky"]
-    installer:
-      type: binary
-      install_path: ${CADDY_INSTALL_PATH}
-      executables:
-        caddy: caddy
-      download_url: "https://github.com/caddyserver/caddy/releases/download/v${version}/caddy_${version}_mac_arm64.tar.gz"
-      is_archive: true
-    config:
-      - src: ./config/Caddyfile
-        dest: ${CADDY_CFG_PATH}
-    start_cmd: >-
-      ${USER_BIN_PATH}/caddy run --config ${CADDY_CFG_PATH}
-
-  - name: "jellyfin"
-    port: [8096]
-    version: "10.9.8"
-    logs_dir: ${JELLYFIN_LOGS_PATH}
-    installer:
-      type: binary
-      install_path: ${JELLYFIN_INSTALL_PATH}
-      executables:
-        jellyfin: Jellyfin.app/Contents/MacOS/jellyfin
-      download_url: "https://blr1.mirror.jellyfin.org/files/server/macos/stable/v${version}/arm64/jellyfin_${version}-arm64.dmg"
-      is_archive: true
-    start_cmd: >-
-      ${USER_BIN_PATH}/jellyfin -w ${JELLYFIN_WEB_DIR}
+#   - name: "jellyfin"
+#     port: [8096]
+#     version: "10.9.8"
+#     logs_dir: ${JELLYFIN_LOGS_PATH}
+#     installer:
+#       type: binary
+#       install_path: ${JELLYFIN_INSTALL_PATH}
+#       executables:
+#         jellyfin: Jellyfin.app/Contents/MacOS/jellyfin
+#       download_url: "https://blr1.mirror.jellyfin.org/files/server/macos/stable/v${version}/arm64/jellyfin_${version}-arm64.dmg"
+#       is_archive: true
+#     start_cmd: >-
+#       ${USER_BIN_PATH}/jellyfin -w ${JELLYFIN_WEB_DIR}

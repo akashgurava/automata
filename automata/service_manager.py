@@ -1,83 +1,116 @@
 # automata/service_manager.py
 
+from typing import Any
 from loguru import logger
 import yaml
 from automata.service import Service, Config, resolve_variables
 from automata.install import BinaryInstaller, BrewInstaller, BinInstaller
 
 
+class ServiceGroup:
+    def __init__(self, name: str, services: list[Service]):
+        self.name = name
+        self.services = services
+
+    def __repr__(self):
+        return f"ServiceGroup(name={self.name}, services={self.services})"
+
+
 class ServiceManager:
     def __init__(self, yaml_file_path: str):
         self.yaml_file_path = yaml_file_path
         self.services: list[Service] = []
-        self._load_services()
+        self.groups: dict[str, ServiceGroup] = {}
+        self._load_services_and_groups()
         self._validate_dependencies()
 
-    def _load_services(self):
+    def _load_services_and_groups(self):
         with open(self.yaml_file_path, "r") as f:
             data = yaml.safe_load(f)
         parsed_yaml = resolve_variables(data, {})
         bin_path = parsed_yaml["bin_path"]
 
-        for service_data in parsed_yaml.get("services", []):
-            name = service_data["name"]
-            port = service_data["port"]
-            version = service_data["version"]
-            logs_dir = service_data["logs_dir"]
-            start_cmd = service_data["start_cmd"]
-            stop_cmd = service_data.get("stop_cmd")
-            depends_on = service_data.get("depends_on", [])
+        # Load groups
+        for group_name, group_services in parsed_yaml.get("groups", {}).items():
+            services: list[Service] = []
+            if group_services:
+                for service_data in group_services:
+                    service = self._create_service(service_data, bin_path)
+                    services.append(service)
+                    self.services.append(service)
+            self.groups[group_name] = ServiceGroup(group_name, services)
 
-            installer_data = service_data["installer"]
-            if isinstance(port, int):
-                port = [port]
-            if installer_data["type"] == "binary":
-                installer = BinaryInstaller(
-                    service_name=name,
-                    install_path=installer_data["install_path"],
-                    bin_path=bin_path,
-                    executables=installer_data["executables"],
-                    download_url=installer_data["download_url"],
-                    is_archive=installer_data["is_archive"],
-                    post_install_cmd=installer_data.get("post_install_cmd"),
-                )
-            elif installer_data["type"] == "brew":
-                installer = BrewInstaller(
-                    service_name=name,
-                    install_path=installer_data["install_path"],
-                    bin_path=bin_path,
-                    executables=installer_data["executables"],
-                    package_name=installer_data["package_name"],
-                    post_install_cmd=installer_data.get("post_install_cmd"),
-                )
-            elif installer_data["type"] == "local_bin":
-                installer = BinInstaller(
-                    service_name=name,
-                    source_path=installer_data["source_path"],
-                    install_path=installer_data["install_path"],
-                    bin_path=bin_path,
-                    executables=installer_data["executables"],
-                )
-            else:
-                raise ValueError(f"Invalid installer type: {installer_data['type']}")
+        # Load individual services
+        services_data = parsed_yaml.get("services", [])
+        if services_data:
+            for service_data in services_data:
+                service = self._create_service(service_data, bin_path)
+                self.services.append(service)
 
-            configs = [
-                Config(name, config_item["src"], config_item["dest"])
-                for config_item in service_data.get("config", [])
-            ]
+    def _create_service(self, service_data: dict[str, Any], bin_path: str) -> Service:
+        name = service_data["name"]
+        port = service_data["port"]
+        version = service_data["version"]
+        logs_dir = service_data["logs_dir"]
+        start_cmd = service_data["start_cmd"]
+        stop_cmd = service_data.get("stop_cmd")
+        depends_on = service_data.get("depends_on", [])
 
-            service = Service(
-                name=name,
-                port=port,
-                version=version,
-                logs_dir=logs_dir,
-                depends_on=depends_on,
-                installer=installer,
-                configs=configs,
-                start_cmd=start_cmd,
-                stop_cmd=stop_cmd,
+        installer_data = service_data["installer"]
+        if isinstance(port, int):
+            port = [port]
+
+        installer = self._create_installer(installer_data, name, bin_path)
+
+        configs = [
+            Config(name, config_item["src"], config_item["dest"])
+            for config_item in service_data.get("config", [])
+        ]
+
+        return Service(
+            name=name,
+            port=port,
+            version=version,
+            logs_dir=logs_dir,
+            depends_on=depends_on,
+            installer=installer,
+            configs=configs,
+            start_cmd=start_cmd,
+            stop_cmd=stop_cmd,
+        )
+
+    def _create_installer(
+        self, installer_data: dict[str, Any], service_name: str, bin_path: str
+    ):
+        if installer_data["type"] == "binary":
+            return BinaryInstaller(
+                service_name=service_name,
+                install_path=installer_data["install_path"],
+                bin_path=bin_path,
+                executables=installer_data["executables"],
+                download_url=installer_data["download_url"],
+                is_archive=installer_data["is_archive"],
+                post_install_cmd=installer_data.get("post_install_cmd"),
             )
-            self.services.append(service)
+        elif installer_data["type"] == "brew":
+            return BrewInstaller(
+                service_name=service_name,
+                install_path=installer_data["install_path"],
+                bin_path=bin_path,
+                executables=installer_data["executables"],
+                package_name=installer_data["package_name"],
+                post_install_cmd=installer_data.get("post_install_cmd"),
+            )
+        elif installer_data["type"] == "local_bin":
+            return BinInstaller(
+                service_name=service_name,
+                source_path=installer_data["source_path"],
+                install_path=installer_data["install_path"],
+                bin_path=bin_path,
+                executables=installer_data["executables"],
+            )
+        else:
+            raise ValueError(f"Invalid installer type: {installer_data['type']}")
 
     def _validate_dependencies(self):
         service_names = {service.name for service in self.services}
@@ -109,16 +142,24 @@ class ServiceManager:
                 return service
         raise ValueError(f"Service '{name}' not found")
 
+    def get_group(self, name: str) -> ServiceGroup:
+        if name in self.groups:
+            return self.groups[name]
+        raise ValueError(f"Group '{name}' not found")
+
     def _log_operation_order(self, operation: str, order: list[list[str]] | list[str]):
-        if isinstance(order[0], list):
+        if len(order) == 0:
+            logger.debug(f"No services found.")
+        elif isinstance(order[0], list):
             # For start order
             formatted_order = " -> ".join(
                 ["[" + ", ".join(group) + "]" for group in order]
             )
+            logger.info(f"{operation.capitalize()} order: {formatted_order}")
         else:
             # For stop order
             formatted_order: str = " -> ".join(order)  # type: ignore
-        logger.info(f"{operation.capitalize()} order: {formatted_order}")
+            logger.info(f"{operation.capitalize()} order: {formatted_order}")
 
     def _get_start_order(self) -> list[list[str]]:
         order: list[list[str]] = []
@@ -298,6 +339,12 @@ class ServiceManager:
                 service = self.get_service(service_name)
                 service.installer.install()
 
+    def install_group(self, group_name: str):
+        group = self.get_group(group_name)
+        logger.info(f"Installing group: {group_name}")
+        for service in group.services:
+            service.installer.install()
+
     def start_all_services(self):
         order = self._get_start_order()
         logger.info("Planning to start all services")
@@ -321,6 +368,12 @@ class ServiceManager:
                 logger.info(f"Starting service: {service_name}")
                 self.get_service(service_name).start_service()
 
+    def start_group(self, group_name: str):
+        group = self.get_group(group_name)
+        logger.info(f"Starting group: {group_name}")
+        for service in group.services:
+            service.start_service()
+
     def stop_all_services(self):
         order = self._get_stop_order()
         logger.info("Planning to stop all services")
@@ -343,6 +396,12 @@ class ServiceManager:
             for service_name in group:
                 logger.info(f"Stopping service: {service_name}")
                 self.get_service(service_name).stop_service()
+
+    def stop_group(self, group_name: str):
+        group = self.get_group(group_name)
+        logger.info(f"Stopping group: {group_name}")
+        for service in reversed(group.services):
+            service.stop_service()
 
     def uninstall_all_services(self):
         order = self._get_stop_order()
@@ -375,6 +434,12 @@ class ServiceManager:
             logger.info(f"Installing service: {service_name}")
             service = self.get_service(service_name)
             service.install()
+
+    def uninstall_group(self, group_name: str):
+        group = self.get_group(group_name)
+        logger.info(f"Uninstalling group: {group_name}")
+        for service in reversed(group.services):
+            service.uninstall()
 
     def start_specific_services_no_deps(self, service_names: list[str]):
         logger.info("Planning to start specific services without dependencies")

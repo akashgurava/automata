@@ -39,7 +39,7 @@ def expandvars_recursive(value: str, context: Dict[str, Any]) -> str:
         replacement = context.get(var_name, os.getenv(var_name, None))
         if replacement is None:
             raise ValueError(f"Variable {var_name} is not resolvable.")
-        value = value[: match.start()] + replacement + value[match.end() :]
+        value = value[: match.start()] + str(replacement) + value[match.end() :]
     return value
 
 
@@ -229,7 +229,7 @@ class Service:
             pids: set[int] = set()
             for proc in process_iter():
                 try:
-                    for conns in proc.connections(kind="inet"):
+                    for conns in proc.net_connections(kind="inet"):
                         if conns.laddr.port in self.port:
                             pids.add(proc.pid)
                 except:
@@ -240,12 +240,12 @@ class Service:
 
         # Ensure the service is stopped
         for _ in range(5):
+            sleep(3)
             if self.is_service_open():
                 logger.warning(f"Service: {self.name}. Service still running.")
             else:
                 logger.info(f"Service: {self.name}. Service stopped.")
                 return
-            sleep(3)
 
     def uninstall(self):
         """Uninstall the service."""

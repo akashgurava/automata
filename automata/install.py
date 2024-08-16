@@ -201,6 +201,8 @@ class Installer:
 
     def _create_symlinks(self):
         """Create symlinks for the executables."""
+        logger.debug("Creating symlinks.")
+        ensure_dir_exists(self.bin_path)
         for executable, executable_src_rel_path in self.executables.items():
             executable_src_path = os.path.join(
                 self.install_path, executable_src_rel_path
@@ -459,13 +461,16 @@ class BinInstaller(Installer):
         """
         ensure_dir_exists(self._install_path)
 
+        logger.debug("Copying binaries.")
         # Copy contents from source_path to install_path
         for item in os.listdir(self._source_path):
             s = os.path.join(self._source_path, item)
             d = os.path.join(self._install_path, item)
             if os.path.isdir(s):
+                logger.debug(f"Src: {s}. Target: {d}. Copying directory.")
                 shutil.copytree(s, d, dirs_exist_ok=True)
             else:
+                logger.debug(f"Src: {s}. Target: {d}. Copying file.")
                 shutil.copy2(s, d)
 
         self._create_symlinks()
