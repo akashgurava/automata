@@ -4,5 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+anyhow = "1.0.89"
+dotenvy = { git = "https://github.com/allan2/dotenvy" }
 log = "0.4.22"
 regex = "1.10.6"
+serde = { version = "1.0.210", features = ["derive"] }
+serde_yaml = "0.9.34"

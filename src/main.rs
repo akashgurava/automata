@@ -1,5 +1,12 @@
-mod utils;
+#![allow(dead_code)]
 
-fn main() {
-    println!("Hello, world!");
+use config::ServiceConfig;
+
+mod config;
+mod config_parser;
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let service_config = ServiceConfig::new("services.yaml")?;
+    dbg!(service_config);
+    Ok(())
 }
