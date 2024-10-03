@@ -1,7 +1,8 @@
 use anyhow::{bail, Error};
 use dotenvy::{EnvLoader, EnvMap, EnvSequence};
 use regex::Regex;
-use serde_yaml::Value;
+use serde::de::value;
+use serde_yaml::{mapping::Keys, Value};
 use std::{fs::File, io, path::Path};
 
 /// Loads environment variables from a `.env` file or the system environment if the file is not found.
@@ -23,6 +24,10 @@ use std::{fs::File, io, path::Path};
 ///
 /// A `Result` containing the `EnvMap` with the loaded environment variables or an error if loading failed.
 pub(crate) fn get_env_map() -> Result<EnvMap, Error> {
+    // let mut env_map = EnvMap::new();
+    // env_map.insert("HOME".into(), "HOME".into());
+
+    // Ok(env_map)
     let path = Path::new(".env");
     let loader = match File::open(path) {
         Ok(file) => EnvLoader::with_reader(file)
@@ -89,8 +94,8 @@ fn expand_vars_recursive(value: &str, context: &EnvMap) -> Result<String, Error>
 /// env_path: "${HOME}/my_app"
 /// "#;
 /// let yaml_data: Value = serde_yaml::from_str(yaml_str).unwrap();
-/// let mut env_map = get_env_map().unwrap();
-/// let resolved = resolve_variables(&yaml_data, &mut env_map).unwrap();
+/// let env_map = get_env_map().unwrap();
+/// let resolved = resolve_variables(&yaml_data, &env_map).unwrap();
 /// if let Value::Mapping(mapping) = resolved {
 ///     assert_eq!(mapping.get(&Value::String("env_path".to_string())).unwrap(), &Value::String("/home/user/my_app".to_string()));
 /// }
@@ -101,33 +106,37 @@ fn expand_vars_recursive(value: &str, context: &EnvMap) -> Result<String, Error>
 /// A `Result` containing the resolved `Value` or an error if resolution failed.
 pub(crate) fn resolve_variables(data: &Value, context: &EnvMap) -> Result<Value, Error> {
     match data {
-        Value::String(s) => {
-            // Expand variables in strings
-            Ok(Value::String(expand_vars_recursive(s, context)?))
-        }
+        // Expand string vars
+        Value::String(s) => Ok(Value::String(expand_vars_recursive(s, context)?)),
         Value::Mapping(mapping) => {
             // Create a new context for the current level
             let mut new_context = context.clone();
 
-            // First pass: resolve only strings and update the context
-            let mut temp_map = serde_yaml::Mapping::new();
-            for (key, value) in mapping {
-                if let Value::String(ref k) = key {
-                    if let Value::String(ref v) = value {
-                        // Resolve the value and insert it into the context for further use
-                        let resolved_value = expand_vars_recursive(v, &new_context)?;
-                        new_context.insert(k.clone(), resolved_value.clone());
-                        temp_map.insert(Value::String(k.clone()), Value::String(resolved_value));
+            // dbg!(&data, &new_context);
+
+            if let Some(env) = mapping.get("env") {
+                if let Value::Mapping(env) = env {
+                    for (key, value) in env {
+                        if let Value::String(key) = key {
+                            if let Value::String(value) = value {
+                                let value = expand_vars_recursive(value, &new_context)?;
+                                new_context.insert(key.clone(), value);
+                            }
+                        }
                     }
                 }
-            }
+            };
 
-            // Second pass: recursively resolve remaining nested structures using the updated context
             let mut resolved_map = serde_yaml::Mapping::new();
             for (key, value) in mapping {
-                let resolved_key = resolve_variables(key, &mut new_context)?;
                 let resolved_value = resolve_variables(value, &mut new_context)?;
-                resolved_map.insert(resolved_key, resolved_value);
+
+                if let Value::String(k) = key {
+                    if let Value::String(v) = &resolved_value {
+                        new_context.insert(k.clone(), v.clone());
+                    }
+                }
+                resolved_map.insert(key.clone(), resolved_value);
             }
 
             Ok(Value::Mapping(resolved_map))

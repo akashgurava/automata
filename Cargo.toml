@@ -6,7 +6,10 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.89"
 dotenvy = { git = "https://github.com/allan2/dotenvy" }
+liblzma = { version = "0.3", features = ["static"] }
 log = "0.4.22"
-regex = "1.10.6"
+regex = "1.11"
+reqwest = { version = "0.12", features = ["blocking", "json"] }
 serde = { version = "1.0.210", features = ["derive"] }
 serde_yaml = "0.9.34"
+tar = "0.4"

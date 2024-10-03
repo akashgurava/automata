@@ -1,6 +1,7 @@
 {
     "ansible.python.interpreterPath": "/Users/akash/.local/share/virtualenvs/automata-aw4qRSAz/bin/python",
     "cSpell.words": [
+        "decompressor",
         "dotenvy",
         "homepath",
         "initdb",
@@ -9,6 +10,7 @@
         "loguru",
         "promtool",
         "replacen",
+        "reqwest",
         "sonarr",
         "tsdb"
     ],
