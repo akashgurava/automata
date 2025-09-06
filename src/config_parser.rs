@@ -64,7 +64,7 @@ pub(crate) fn get_env_map() -> Result<EnvMap, Error> {
 /// # Returns
 ///
 /// A `Result` containing the expanded string or an error if variable resolution failed.
-fn expand_vars_recursive(value: &str, context: &EnvMap) -> Result<String, Error> {
+pub(crate) fn expand_vars_recursive(value: &str, context: &EnvMap) -> Result<String, Error> {
     let pattern = Regex::new(r"\$\{([^}]+)\}").unwrap();
     let mut result = value.to_string();
     while let Some(captures) = pattern.captures(&result) {

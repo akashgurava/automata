@@ -1,23 +1,33 @@
-env:
-  USER_APPS_PATH: ${HOME}/apps
-  USER_INSTALL_PATH: ${USER_APPS_PATH}/install
-  USER_BIN_PATH: ${USER_APPS_PATH}/bin
-  USER_CFG_PATH: ${USER_APPS_PATH}/config
-  USER_LOG_PATH: ${USER_APPS_PATH}/log
-services:
-  - name: "jellyfin"
-    version: "10.9.11"
-    ports:
-      - 8096
+# env:
+#   USER_APPS_PATH: ${HOME}/apps
+#   USER_INSTALL_PATH: ${USER_APPS_PATH}/install
+#   USER_BIN_PATH: ${USER_APPS_PATH}/bin
+#   USER_CFG_PATH: ${USER_APPS_PATH}/config
+#   USER_LOG_PATH: ${USER_APPS_PATH}/log
+# services:
+#   - name: "jellyfin"
+#     version: "10.9.11"
+#     ports:
+#       - 8096
+#     env:
+#       SERVICE_NAME: jellyfin
+#       INSTALL_PATH: ${USER_INSTALL_PATH}/${SERVICE_NAME}
+#       LOG_PATH: ${USER_BIN_PATH}/${SERVICE_NAME}
+#     logs_dir: ${LOG_PATH}
+#     installer:
+#       install_path: ${INSTALL_PATH}
+#       executables:
+#         jellyfin: jellyfin/jellyfin
+#       binary:
+#         download_url: "https://repo.jellyfin.org/files/server/macos/latest-stable/arm64/jellyfin_${version}-arm64.tar.xz"
+#         is_archive: true
+groups:
+  media:
     env:
-      SERVICE_NAME: jellyfin
-      INSTALL_PATH: ${USER_INSTALL_PATH}/${SERVICE_NAME}
-      LOG_PATH: ${USER_BIN_PATH}/${SERVICE_NAME}
-    logs_dir: ${LOG_PATH}
-    installer:
-      install_path: ${INSTALL_PATH}
-      executables:
-        jellyfin: jellyfin/jellyfin
-      binary:
-        download_url: "https://repo.jellyfin.org/files/server/macos/latest-stable/arm64/jellyfin_${version}-arm64.tar.xz"
-        is_archive: true
+    jellyfin:
+      version: "1"
+# services:
+#   jellyfin:
+#     version: "10.9.11"
+#     ports:
+#       - 8096
